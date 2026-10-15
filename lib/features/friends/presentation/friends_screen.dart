@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/member_avatar.dart';
@@ -31,15 +32,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
             children: [
-              const Reveal(
-                child: Text('Friends 👯',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+              Reveal(
+                child: Text(
+                  'Friends',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
               ),
               const SizedBox(height: 2),
               Reveal(
                 index: 1,
-                child: Text('${s.circleName} · ${s.members.length} members',
-                    style: const TextStyle(color: AppColors.muted)),
+                child: Text(
+                  '${s.circleName} · ${s.members.length} members',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+                ),
               ),
               const SizedBox(height: 14),
               Reveal(
@@ -58,7 +65,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       backgroundColor: Colors.white,
                       selectedBackgroundColor: AppColors.mintLight,
                       selectedForegroundColor: AppColors.primaryDark,
-                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      textStyle: Theme.of(context).textTheme.labelLarge,
                     ),
                   ),
                 ),
@@ -93,17 +100,26 @@ class _ThisWeek extends StatelessWidget {
             borderColor: const Color(0xFFBFE8D1),
             child: Row(
               children: [
-                const Text('📅', style: TextStyle(fontSize: 24)),
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 24,
+                  color: AppColors.primaryDark,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Round $cur · due ${Dates.short(s.dueOf(cur))}',
-                          style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text(
-                          '${s.paidMembers(cur)} of ${s.members.length} paid · ${Money.fmt(s.collected(cur))} of ${Money.fmt(s.pot)}',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                        'Round $cur · due ${Dates.short(s.dueOf(cur))}',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        '${s.paidMembers(cur)} of ${s.members.length} paid · ${Money.fmt(s.collected(cur))} of ${Money.fmt(s.pot)}',
+                        style: context.type.moneyCaption.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -125,9 +141,11 @@ class _ThisWeek extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Tap a member to see their payment history. Ajo shows facts from the ledger — not scores.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.4),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
         ),
       ],
     );
@@ -135,7 +153,11 @@ class _ThisWeek extends StatelessWidget {
 }
 
 class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.store, required this.member, required this.isRecipient});
+  const _MemberRow({
+    required this.store,
+    required this.member,
+    required this.isRecipient,
+  });
 
   final AjoStore store;
   final Member member;
@@ -149,31 +171,37 @@ class _MemberRow extends StatelessWidget {
       chip = o.paidLate
           ? const StatusChip(
               label: 'Paid late',
-              color: Color(0xFF8A6100),
+              color: AppColors.goldDark,
               background: AppColors.goldLight,
-              icon: Icons.check_rounded)
+              icon: Icons.check_rounded,
+            )
           : const StatusChip(
               label: 'Paid',
               color: AppColors.primary,
               background: AppColors.mintLight,
-              icon: Icons.check_rounded);
+              icon: Icons.check_rounded,
+            );
     } else if (o.paidKobo > 0) {
       chip = StatusChip(
-          label: '${Money.fmt(o.paidKobo)} of ${Money.fmt(o.amountKobo)}',
-          color: const Color(0xFF8A6100),
-          background: AppColors.goldLight,
-          icon: Icons.timelapse_rounded);
+        label: '${Money.fmt(o.paidKobo)} of ${Money.fmt(o.amountKobo)}',
+        color: AppColors.goldDark,
+        background: AppColors.goldLight,
+        icon: Icons.timelapse_rounded,
+      );
     } else if (Dates.daysFromToday(o.dueAt) < 0) {
       chip = const StatusChip(
-          label: 'Overdue',
-          color: AppColors.warning,
-          background: AppColors.warningLight,
-          icon: Icons.error_outline_rounded);
+        label: 'Overdue',
+        color: AppColors.warningDark,
+        background: AppColors.warningLight,
+        icon: Icons.error_outline_rounded,
+      );
     } else {
       chip = const StatusChip(
-          label: 'Not yet',
-          color: AppColors.muted,
-          background: Color(0xFFF0F1F4));
+        label: 'Not yet',
+        color: AppColors.muted,
+        background: Color(0xFFF0F1F4),
+        icon: Icons.schedule_rounded,
+      );
     }
 
     return SectionCard(
@@ -190,16 +218,31 @@ class _MemberRow extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(member.isMe ? '${member.name} (you)' : member.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                      child: Text(
+                        member.isMe ? '${member.name} (you)' : member.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
-                    if (isRecipient) const Text('  👑', style: TextStyle(fontSize: 14)),
+                    if (isRecipient) ...[
+                      const SizedBox(width: 5),
+                      const Icon(
+                        Icons.emoji_events_rounded,
+                        size: 16,
+                        color: AppColors.goldDark,
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(isRecipient ? 'Receiving this round' : 'Round ${store.currentRound} contribution',
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                Text(
+                  isRecipient
+                      ? 'Receiving this round'
+                      : 'Round ${store.currentRound} contribution',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                ),
               ],
             ),
           ),
@@ -208,23 +251,34 @@ class _MemberRow extends StatelessWidget {
             children: [
               chip,
               if (!o.isPaid && !member.isMe)
-                GestureDetector(
-                  onTap: () {
+                TextButton.icon(
+                  onPressed: () {
                     store.nudge(member.id);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         behavior: SnackBarBehavior.floating,
-                        content: Text('Reminder sent to ${member.name} 👋'),
+                        content: Row(
+                          children: [
+                            const Icon(
+                              Icons.notifications_active_rounded,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Reminder sent to ${member.name}'),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text('Nudge',
-                        style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12.5)),
+                  icon: const Icon(Icons.notifications_rounded, size: 15),
+                  label: const Text('Nudge'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryDark,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.only(top: 6),
+                    textStyle: Theme.of(context).textTheme.labelMedium,
                   ),
                 ),
             ],
@@ -251,10 +305,7 @@ class _PastRounds extends StatelessWidget {
     if (rounds.isEmpty) {
       return const Reveal(
         index: 3,
-        child: SectionCard(
-          child: Text('No rounds have settled yet.',
-              style: TextStyle(color: AppColors.muted)),
-        ),
+        child: SectionCard(child: Text('No rounds have settled yet.')),
       );
     }
     return Column(
@@ -300,11 +351,15 @@ class _PastRoundCard extends StatelessWidget {
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           leading: MemberAvatar(member: recipient, size: 40),
           title: Text(
-              'Round $round · ${recipient.isMe ? 'You' : recipient.name} received ${Money.fmt(p.amountKobo)}',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+            'Round $round · ${recipient.isMe ? 'You' : recipient.name} received ${Money.fmt(p.amountKobo)}',
+            style: context.type.moneyBody,
+          ),
           subtitle: Text(
-              '${p.settledAt == null ? '' : 'Settled ${Dates.short(p.settledAt!)} · '}$onTime/${obs.length} on time',
-              style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+            '${p.settledAt == null ? '' : 'Settled ${Dates.short(p.settledAt!)} · '}$onTime/${obs.length} on time',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+          ),
           children: [
             for (final o in obs)
               Padding(
@@ -314,17 +369,35 @@ class _PastRoundCard extends StatelessWidget {
                     MemberAvatar(member: s.member(o.memberId), size: 26),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(s.nameOf(o.memberId),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        s.nameOf(o.memberId),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
+                    Icon(
+                      o.isPaid
+                          ? Icons.check_circle_rounded
+                          : Icons.error_rounded,
+                      size: 16,
+                      color: o.isPaid
+                          ? (o.paidLate
+                                ? AppColors.goldDark
+                                : AppColors.primaryDark)
+                          : AppColors.warningDark,
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      o.isPaid ? (o.paidLate ? 'Paid late' : 'On time') : 'Unpaid',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
+                      o.isPaid
+                          ? (o.paidLate ? 'Paid late' : 'On time')
+                          : 'Unpaid',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: o.isPaid
-                            ? (o.paidLate ? const Color(0xFF8A6100) : AppColors.primary)
-                            : AppColors.warning,
+                            ? (o.paidLate
+                                  ? AppColors.goldDark
+                                  : AppColors.primaryDark)
+                            : AppColors.warningDark,
                       ),
                     ),
                   ],
@@ -373,6 +446,24 @@ String markLabel(Mark m) {
   }
 }
 
+IconData markIcon(Mark mark) {
+  switch (mark) {
+    case Mark.onTime:
+      return Icons.check_rounded;
+    case Mark.late:
+      return Icons.schedule_rounded;
+    case Mark.partial:
+      return Icons.timelapse_rounded;
+    case Mark.overdue:
+    case Mark.missed:
+      return Icons.priority_high_rounded;
+    case Mark.pending:
+      return Icons.hourglass_top_rounded;
+    case Mark.upcoming:
+      return Icons.more_horiz_rounded;
+  }
+}
+
 void showHistorySheet(BuildContext context, AjoStore store, Member member) {
   final h = store.historyOf(member.id);
   showModalBottomSheet<void>(
@@ -398,10 +489,16 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(member.isMe ? '${member.name} (you)' : member.name,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                      const Text('Contribution history',
-                          style: TextStyle(color: AppColors.muted)),
+                      Text(
+                        member.isMe ? '${member.name} (you)' : member.name,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      Text(
+                        'Contribution history',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -410,11 +507,29 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
             const SizedBox(height: 18),
             Row(
               children: [
-                _count('${h.onTime}', 'On time', AppColors.primary, AppColors.mintLight),
+                _count(
+                  context,
+                  '${h.onTime}',
+                  'On time',
+                  AppColors.primaryDark,
+                  AppColors.mintLight,
+                ),
                 const SizedBox(width: 10),
-                _count('${h.late}', 'Late', const Color(0xFF8A6100), AppColors.goldLight),
+                _count(
+                  context,
+                  '${h.late}',
+                  'Late',
+                  AppColors.goldDark,
+                  AppColors.goldLight,
+                ),
                 const SizedBox(width: 10),
-                _count('${h.missed}', 'Missed', AppColors.warning, AppColors.warningLight),
+                _count(
+                  context,
+                  '${h.missed}',
+                  'Missed',
+                  AppColors.warningDark,
+                  AppColors.warningLight,
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -432,15 +547,16 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                     ),
                     child: Column(
                       children: [
-                        Text('R${m.round}',
-                            style: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.muted)),
+                        Text(
+                          'R${m.round}',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.muted),
+                        ),
                         const SizedBox(height: 2),
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle, color: markColor(m.mark)),
+                        Icon(
+                          markIcon(m.mark),
+                          size: 16,
+                          color: markColor(m.mark),
                         ),
                       ],
                     ),
@@ -452,18 +568,23 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
               spacing: 12,
               runSpacing: 4,
               children: [
-                for (final m in [Mark.onTime, Mark.late, Mark.overdue, Mark.upcoming])
+                for (final m in [
+                  Mark.onTime,
+                  Mark.late,
+                  Mark.overdue,
+                  Mark.upcoming,
+                ])
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                          width: 8,
-                          height: 8,
-                          decoration:
-                              BoxDecoration(shape: BoxShape.circle, color: markColor(m))),
+                      Icon(markIcon(m), size: 14, color: markColor(m)),
                       const SizedBox(width: 4),
-                      Text(markLabel(m),
-                          style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                      Text(
+                        markLabel(m),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
                     ],
                   ),
               ],
@@ -475,9 +596,22 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 color: AppColors.skyLight,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Text(
-                'This is a factual record from the ledger across ${h.roundsCounted} rounds — not a score or a credit rating.',
-                style: const TextStyle(fontSize: 12.5, height: 1.4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_rounded,
+                    size: 18,
+                    color: AppColors.sky,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This is a factual record from the ledger across ${h.roundsCounted} rounds — not a score or a credit rating.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -487,15 +621,32 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
   );
 }
 
-Widget _count(String n, String label, Color fg, Color bg) {
+Widget _count(
+  BuildContext context,
+  String n,
+  String label,
+  Color fg,
+  Color bg,
+) {
   return Expanded(
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         children: [
-          Text(n, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: fg)),
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+          Text(
+            n,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(color: fg),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg),
+          ),
         ],
       ),
     ),

@@ -14,10 +14,12 @@ class AppColors {
   static const Color muted = Color(0xFF6B7280);
   static const Color border = Color(0xFFE5E7EB);
   static const Color warning = Color(0xFFE8693F);
+  static const Color warningDark = Color(0xFF9A3412);
   static const Color warningLight = Color(0xFFFDE8E1);
 
   // Fun accents
   static const Color gold = Color(0xFFF5B83D);
+  static const Color goldDark = Color(0xFF7A5200);
   static const Color goldLight = Color(0xFFFFF4D6);
   static const Color purple = Color(0xFF7C5CFC);
   static const Color purpleLight = Color(0xFFEEEAFF);

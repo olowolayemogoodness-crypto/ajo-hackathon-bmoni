@@ -23,11 +23,10 @@ class DemoBadge extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 10.5,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
-              color: Color(0xFF8A6100),
+              color: AppColors.goldDark,
             ),
           ),
         ],

@@ -46,12 +46,14 @@ class _AssistantSheetState extends State<AssistantSheet> {
   @override
   void initState() {
     super.initState();
-    _msgs.add(_Msg(
-      _pidgin
-          ? 'How far ${_s.meName}! 👋 Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
-          : 'Hi ${_s.meName}! 👋 I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
-      false,
-    ));
+    _msgs.add(
+      _Msg(
+        _pidgin
+            ? 'How far ${_s.meName}! Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
+            : 'Hi ${_s.meName}! I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
+        false,
+      ),
+    );
   }
 
   @override
@@ -127,22 +129,31 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       gradient: AppColors.heroGradient,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Ajo AI',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        Text('Reads your ledger · can\'t move money',
-                            style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                        Text(
+                          'Ajo AI',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(
+                          'Reads your ledger · can\'t move money',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.muted),
+                        ),
                       ],
                     ),
                   ),
                   FilterChip(
-                    label: const Text('Pidgin 🇳🇬'),
+                    avatar: const Icon(Icons.translate_rounded, size: 16),
+                    label: const Text('Pidgin'),
                     selected: _pidgin,
                     onSelected: (v) => setState(() => _pidgin = v),
                     selectedColor: AppColors.mintLight,
@@ -175,8 +186,9 @@ class _AssistantSheetState extends State<AssistantSheet> {
                   onPressed: () => _send(_suggestions[i]),
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: AppColors.border),
-                  labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.primaryDark),
+                  labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.primaryDark,
+                  ),
                 ),
               ),
             ),
@@ -189,15 +201,11 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       controller: _input,
                       textInputAction: TextInputAction.send,
                       onSubmitted: _send,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Ask about your circle…',
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(999),
-                          borderSide: const BorderSide(color: AppColors.border),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
                         ),
                       ),
                     ),
@@ -234,7 +242,9 @@ class _Bubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         decoration: BoxDecoration(
           color: msg.mine ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.only(
@@ -247,9 +257,7 @@ class _Bubble extends StatelessWidget {
         ),
         child: Text(
           msg.text,
-          style: TextStyle(
-            height: 1.4,
-            fontSize: 14.5,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: msg.mine ? Colors.white : AppColors.ink,
           ),
         ),

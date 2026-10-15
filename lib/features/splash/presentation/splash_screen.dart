@@ -19,11 +19,15 @@ class _SplashScreenState extends State<SplashScreen>
     duration: const Duration(milliseconds: 1100),
   )..forward();
 
-  late final Animation<double> _fade =
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
 
-  late final Animation<double> _scale = Tween<double>(begin: 0.88, end: 1.0)
-      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+  late final Animation<double> _scale = Tween<double>(
+    begin: 0.88,
+    end: 1.0,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
   Timer? _timer;
 
@@ -71,14 +75,12 @@ class _SplashScreenState extends State<SplashScreen>
               const SizedBox(height: 20),
               FadeTransition(
                 opacity: _fade,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 40),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
                     'Save together. Know where everyone stands.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.4,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryDark,
                     ),

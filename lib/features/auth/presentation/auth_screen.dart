@@ -84,33 +84,47 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Reveal(
+                  Reveal(
                     index: 1,
                     child: Text(
-                      'Save together.\nKnow where\neveryone stands. 🤝',
-                      style: TextStyle(
-                        fontSize: 36,
-                        height: 1.12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.ink,
-                        letterSpacing: -0.8,
-                      ),
+                      'Save together.\nKnow where\neveryone stands.',
+                      style: Theme.of(context).textTheme.displayLarge,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Reveal(
+                  Reveal(
                     index: 2,
                     child: Text(
                       'The ajo / esusu circle your family has always run, now with a clear ledger.',
-                      style: TextStyle(fontSize: 16, height: 1.4, color: AppColors.muted),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: AppColors.muted),
                     ),
                   ),
                   const SizedBox(height: 26),
-                  const Reveal(index: 3, child: _Perk('🔒', 'Invite-only circles with friends you trust')),
+                  const Reveal(
+                    index: 3,
+                    child: _Perk(
+                      Icons.lock_rounded,
+                      'Invite-only circles with friends you trust',
+                    ),
+                  ),
                   const SizedBox(height: 10),
-                  const Reveal(index: 4, child: _Perk('📒', 'Every naira tracked in one honest ledger')),
+                  const Reveal(
+                    index: 4,
+                    child: _Perk(
+                      Icons.receipt_long_rounded,
+                      'Every naira tracked in one honest ledger',
+                    ),
+                  ),
                   const SizedBox(height: 10),
-                  const Reveal(index: 5, child: _Perk('✨', 'Ajo AI explains it in English or Pidgin')),
+                  const Reveal(
+                    index: 5,
+                    child: _Perk(
+                      Icons.auto_awesome_rounded,
+                      'Ajo AI explains it in English or Pidgin',
+                    ),
+                  ),
                   const Spacer(),
                   if (_error != null)
                     Padding(
@@ -124,7 +138,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         child: Text(
                           _error!,
-                          style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: AppColors.warningDark,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ),
                     ),
@@ -138,15 +156,22 @@ class _AuthScreenState extends State<AuthScreen> {
                         style: OutlinedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: AppColors.ink,
-                          side: const BorderSide(color: AppColors.border, width: 1.4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          side: const BorderSide(
+                            color: AppColors.border,
+                            width: 1.4,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: Theme.of(context).textTheme.labelLarge,
                         ),
                         child: _loading
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2.4),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                ),
                               )
                             : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -162,11 +187,13 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 16),
                   const Center(child: DemoBadge()),
                   const SizedBox(height: 10),
-                  const Center(
+                  Center(
                     child: Text(
                       'Prototype only. Never enter a real BVN, PIN or card.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -180,16 +207,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _blob(double size, Color color) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  );
 }
 
 class _Perk extends StatelessWidget {
-  const _Perk(this.emoji, this.text);
+  const _Perk(this.icon, this.text);
 
-  final String emoji;
+  final IconData icon;
   final String text;
 
   @override
@@ -205,17 +232,15 @@ class _Perk extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border),
           ),
-          child: Text(emoji, style: const TextStyle(fontSize: 18)),
+          child: Icon(icon, size: 20, color: AppColors.primaryDark),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.ink,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ],

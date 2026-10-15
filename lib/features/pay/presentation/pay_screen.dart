@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/confetti.dart';
@@ -56,10 +57,7 @@ class _PayScreenState extends State<PayScreen> {
       canPop: !busy,
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: AppColors.background,
-          surfaceTintColor: Colors.transparent,
-          title: const Text('Review payment',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          title: const Text('Review payment'),
           leading: busy
               ? const SizedBox.shrink()
               : IconButton(
@@ -90,10 +88,16 @@ class _PayScreenState extends State<PayScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🎉', style: TextStyle(fontSize: 56)),
+            const Icon(
+              Icons.check_circle_rounded,
+              size: 56,
+              color: AppColors.primary,
+            ),
             const SizedBox(height: 12),
-            const Text('Nothing to pay right now',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(
+              'Nothing to pay right now',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 24),
             PrimaryButton(label: 'Back', onPressed: () => context.pop()),
           ],
@@ -113,7 +117,8 @@ class _PayScreenState extends State<PayScreen> {
       case _Stage.submitted:
         return _status(
           title: 'Payment submitted',
-          subtitle: 'Awaiting confirmation. Ajo only marks you as paid once it\'s confirmed.',
+          subtitle:
+              'Awaiting confirmation. Ajo only marks you as paid once it\'s confirmed.',
           loader: true,
           reference: _intent?.reference,
         );
@@ -137,18 +142,24 @@ class _PayScreenState extends State<PayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(early ? 'Paying early 🚀' : 'You\'re paying',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
+              Text(
+                early ? 'Paying early' : 'You\'re paying',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.88),
+                ),
+              ),
               const SizedBox(height: 6),
-              Text(Money.fmt(ob.remainingKobo),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1)),
+              Text(
+                Money.fmt(ob.remainingKobo),
+                style: context.type.moneyDisplay.copyWith(color: Colors.white),
+              ),
               const SizedBox(height: 4),
-              Text('${_s.circleName} · Round ${ob.round}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9))),
+              Text(
+                '${_s.circleName} · Round ${ob.round}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
             ],
           ),
         ),
@@ -175,15 +186,37 @@ class _PayScreenState extends State<PayScreen> {
               color: AppColors.warningLight,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('That didn\'t go through. You haven\'t been charged — try again.',
-                style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.error_rounded,
+                  color: AppColors.warningDark,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'That didn\'t go through. You haven\'t been charged — try again.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.warningDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         const Spacer(),
         const Center(child: DemoBadge()),
         const SizedBox(height: 8),
-        const Center(
-          child: Text('Prototype — no real money moves.',
-              style: TextStyle(fontSize: 12, color: AppColors.muted)),
+        Center(
+          child: Text(
+            'Prototype — no real money moves.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+          ),
         ),
         const SizedBox(height: 12),
         PrimaryButton(
@@ -208,20 +241,33 @@ class _PayScreenState extends State<PayScreen> {
           const SizedBox(
             width: 84,
             height: 84,
-            child: CircularProgressIndicator(strokeWidth: 6, color: AppColors.primary),
+            child: CircularProgressIndicator(
+              strokeWidth: 6,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 28),
-          Text(title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 8),
-          Text(subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, height: 1.4)),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ),
           if (reference != null) ...[
             const SizedBox(height: 16),
-            Text('Ref: $reference',
-                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.muted)),
+            Text(
+              'Ref: $reference',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: AppColors.muted),
+            ),
           ],
         ],
       ),
@@ -236,21 +282,34 @@ class _PayScreenState extends State<PayScreen> {
           tween: Tween<double>(begin: 0, end: 1),
           duration: const Duration(milliseconds: 700),
           curve: Curves.elasticOut,
-          builder: (context, v, child) => Transform.scale(scale: v, child: child),
+          builder: (context, v, child) =>
+              Transform.scale(scale: v, child: child),
           child: Container(
             width: 104,
             height: 104,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: AppColors.primary),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 64),
+              shape: BoxShape.circle,
+              color: AppColors.primary,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 64,
+            ),
           ),
         ),
         const SizedBox(height: 22),
-        const Text('Payment confirmed! 🎉',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        Text(
+          'Payment confirmed!',
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
         const SizedBox(height: 6),
-        Text('You\'re all set for Round ${ob.round}.',
-            style: const TextStyle(color: AppColors.muted)),
+        Text(
+          'You\'re all set for Round ${ob.round}.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+        ),
         const SizedBox(height: 22),
         SectionCard(
           child: Column(
@@ -274,13 +333,22 @@ class _PayScreenState extends State<PayScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(k, style: const TextStyle(color: AppColors.muted)),
+          Text(
+            k,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ),
           Flexible(
-            child: Text(v,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                    fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
-                    fontSize: bold ? 17 : 14.5)),
+            child: Text(
+              v,
+              textAlign: TextAlign.right,
+              style: v.startsWith('₦')
+                  ? (bold ? context.type.moneyTitle : context.type.moneyBody)
+                  : (bold
+                        ? Theme.of(context).textTheme.titleMedium
+                        : Theme.of(context).textTheme.titleSmall),
+            ),
           ),
         ],
       ),
