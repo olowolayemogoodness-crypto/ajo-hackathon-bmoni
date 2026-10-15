@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     environment: Literal["local", "test", "staging", "production"] = "local"
     database_url: str = "postgresql+psycopg://localhost:5432/ajo"
+    firebase_project_id: str = "ajo-hackathon"
 
 
 @lru_cache
