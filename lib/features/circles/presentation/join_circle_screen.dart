@@ -8,6 +8,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/models.dart';
 import '../../../data/store/ajo_store.dart';
+import 'join_review_screen.dart';
 
 class JoinCircleScreen extends StatefulWidget {
   const JoinCircleScreen({super.key});
@@ -38,10 +39,16 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
     });
   }
 
-  void _join() {
+  Future<void> _join() async {
     final c = _found;
     if (c == null) return;
-    AjoStore.instance.joinCircle(c);
+    // Membership is only recorded after the member reviews and accepts.
+    final joined = await openJoinReview(context, c);
+    if (joined != true) return;
+    if (!mounted) return;
+    final pending = AjoStore.instance.otherCircles.any(
+      (x) => x.code == c.code && x.awaitingApproval,
+    );
     final messenger = ScaffoldMessenger.of(context);
     context.pop();
     messenger.showSnackBar(
@@ -52,7 +59,13 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.white),
             const SizedBox(width: 8),
-            Expanded(child: Text('You joined ${c.name}!')),
+            Expanded(
+              child: Text(
+                pending
+                    ? 'Request sent. ${c.organizer} will approve you.'
+                    : 'You joined ${c.name}!',
+              ),
+            ),
           ],
         ),
       ),
@@ -160,8 +173,8 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
                     ),
                     const SizedBox(height: 14),
                     PrimaryButton(
-                      label: 'Join circle',
-                      icon: Icons.handshake_rounded,
+                      label: 'Review rules & join',
+                      icon: Icons.rule_rounded,
                       onPressed: _join,
                     ),
                   ],

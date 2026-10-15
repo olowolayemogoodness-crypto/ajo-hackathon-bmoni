@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
+import '../logic/circle_rules_logic.dart';
+import '../logic/dispute_logic.dart';
 import '../logic/ledger_logic.dart';
 import '../logic/reliability_logic.dart';
 import '../logic/reminder_logic.dart';
 import '../mock/seed_data.dart';
+import '../models/circle_rules.dart';
 import '../models/models.dart';
 import '../payments/mock_payments_adapter.dart';
 import '../payments/payments_adapter.dart';
@@ -203,6 +206,8 @@ class AjoStore extends ChangeNotifier {
       Mark m;
       if (o == null) {
         m = Mark.upcoming;
+      } else if (o.isDisputed) {
+        m = Mark.underReview; // unresolved: neither for nor against the member
       } else if (o.isPaid) {
         m = o.paidLate ? Mark.late : Mark.onTime;
       } else if (r < currentRound) {
@@ -229,6 +234,8 @@ class AjoStore extends ChangeNotifier {
       final m = marks[r - 1].mark;
       if (m == Mark.onTime) {
         streak++;
+      } else if (m == Mark.underReview) {
+        continue;
       } else if (r == currentRound &&
           (m == Mark.pending || m == Mark.overdue || m == Mark.partial)) {
         continue;
@@ -336,6 +343,64 @@ class AjoStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------------- disputes
+
+  /// Records currently under dispute, oldest round first (organiser view).
+  List<Obligation> get disputedRecords =>
+      obligations.where((o) => o.isDisputed).toList()
+        ..sort((a, b) {
+          final byRound = a.round.compareTo(b.round);
+          return byRound != 0 ? byRound : a.memberId.compareTo(b.memberId);
+        });
+
+  /// A member's records they are allowed to dispute.
+  List<Obligation> disputableFor(String memberId) =>
+      obligations
+          .where(
+            (o) =>
+                o.memberId == memberId &&
+                DisputeLogic.canDispute(o, currentRound: currentRound),
+          )
+          .toList()
+        ..sort((a, b) => a.round.compareTo(b.round));
+
+  /// Moves a ledger record to "Under review" with a reason. Never changes the
+  /// payout order, payout status or membership.
+  void openDispute({
+    required int round,
+    required String memberId,
+    required String reason,
+    DateTime? now,
+  }) {
+    final o = obligationOf(round, memberId);
+    if (o == null) throw const DisputeError('That record was not found.');
+    DisputeLogic.open(
+      o,
+      reason: reason,
+      now: now ?? DateTime.now(),
+      currentRound: currentRound,
+    );
+    _log(
+      'dispute_opened',
+      '${nameOf(memberId)} disputed the Round $round record — under review',
+      round: round,
+    );
+    notifyListeners();
+  }
+
+  /// Organiser resolves a dispute (demo). Payout order stays untouched.
+  void resolveDispute(int round, String memberId) {
+    final o = obligationOf(round, memberId);
+    if (o == null || !o.isDisputed) return;
+    DisputeLogic.resolve(o);
+    _log(
+      'dispute_resolved',
+      'Organiser resolved the Round $round record for ${nameOf(memberId)}',
+      round: round,
+    );
+    notifyListeners();
+  }
+
   void approvePayout() {
     final p = currentPayout;
     if (p == null || p.status != PayoutStatus.awaitingApproval) return;
@@ -400,10 +465,29 @@ class AjoStore extends ChangeNotifier {
     return c;
   }
 
+  /// Creates a circle from validated rules. The full schedule and payout order
+  /// are derived from the rules and visible to everyone who reviews the circle.
+  DraftCircle createCircleWithRules(CircleRules rules) {
+    final c = DraftCircle(
+      name: rules.name,
+      amountKobo: rules.amountKobo,
+      size: rules.memberCount,
+      frequency: rules.frequency,
+      code: _code(),
+      organizer: 'You',
+      memberCount: 1,
+      rules: rules,
+    );
+    otherCircles.add(c);
+    _log('circle_created', 'You created the circle "${rules.name}"');
+    notifyListeners();
+    return c;
+  }
+
   DraftCircle? lookupInvite(String raw) {
     final code = raw.trim().toUpperCase();
     if (code == 'FUN-2026') {
-      return DraftCircle(
+      final base = DraftCircle(
         name: 'Weekend Hustlers',
         amountKobo: 200000,
         size: 6,
@@ -412,14 +496,36 @@ class AjoStore extends ChangeNotifier {
         organizer: 'Aisha',
         memberCount: 5,
       );
+      final rules = CircleRulesLogic.fallbackFor(base);
+      return DraftCircle(
+        name: base.name,
+        amountKobo: base.amountKobo,
+        size: base.size,
+        frequency: base.frequency,
+        code: base.code,
+        organizer: base.organizer,
+        memberCount: base.memberCount,
+        rules: rules,
+      );
     }
     return null;
   }
 
-  void joinCircle(DraftCircle c) {
-    otherCircles.add(c.asJoined());
-    _log('circle_joined', 'You joined "${c.name}"');
+  /// Records membership only after an explicit acceptance. Returns false (and
+  /// changes nothing) if the member has not accepted or is already in.
+  bool joinCircle(DraftCircle c, {required bool accepted, DateTime? now}) {
+    if (!accepted) return false;
+    if (otherCircles.any((x) => x.code == c.code)) return false;
+    final joined = c.asJoined(acceptedAt: now ?? DateTime.now());
+    otherCircles.add(joined);
+    _log(
+      'circle_joined',
+      joined.awaitingApproval
+          ? 'You asked to join "${c.name}" — waiting for organiser approval'
+          : 'You joined "${c.name}"',
+    );
     notifyListeners();
+    return true;
   }
 
   // --------------------------------------------------------------- private

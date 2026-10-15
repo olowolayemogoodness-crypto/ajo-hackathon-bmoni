@@ -8,6 +8,7 @@ class ContributionReliability {
     required this.delayed,
     required this.resolvedMisses,
     required this.averageDelayDays,
+    this.unresolvedDisputes = 0,
   });
 
   final int historyLength;
@@ -16,6 +17,10 @@ class ContributionReliability {
   final int delayed;
   final int resolvedMisses;
   final double averageDelayDays;
+
+  /// Disputed records are unresolved: they are not counted for or against
+  /// the member until the organiser resolves them.
+  final int unresolvedDisputes;
 
   int get completionPercent =>
       historyLength == 0 ? 0 : (completed * 100 / historyLength).round();
@@ -35,7 +40,10 @@ class ContributionReliability {
     final resolved = resolvedMisses == 0
         ? ''
         : ' $resolvedMisses late ${resolvedMisses == 1 ? 'payment was' : 'payments were'} later resolved.';
-    return '$completion $timing$resolved';
+    final disputed = unresolvedDisputes == 0
+        ? ''
+        : ' $unresolvedDisputes ${unresolvedDisputes == 1 ? 'record is' : 'records are'} under review and not counted either way.';
+    return '$completion $timing$resolved$disputed';
   }
 
   String get uncertainty => hasLimitedHistory
@@ -50,7 +58,9 @@ class ReliabilityLogic {
     Iterable<Obligation> obligations, {
     required DateTime now,
   }) {
-    final considered = obligations.where((o) => !o.dueAt.isAfter(now)).toList();
+    final due = obligations.where((o) => !o.dueAt.isAfter(now)).toList();
+    final unresolvedDisputes = due.where((o) => o.isDisputed).length;
+    final considered = due.where((o) => !o.isDisputed).toList();
     var completed = 0;
     var onTime = 0;
     var delayed = 0;
@@ -84,6 +94,7 @@ class ReliabilityLogic {
       delayed: delayed,
       resolvedMisses: delayed,
       averageDelayDays: delayed == 0 ? 0 : delayDays / delayed,
+      unresolvedDisputes: unresolvedDisputes,
     );
   }
 }
