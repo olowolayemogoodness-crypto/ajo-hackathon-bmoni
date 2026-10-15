@@ -43,11 +43,85 @@ class AssistantEngine {
     final recipient = s.member(payout.recipientId);
     final recipientName = recipient.isMe ? 'you' : recipient.name;
 
+    // Core PRD questions are matched before broader keyword branches.
+    if (_has(t, [
+      'this week',
+      'weekly summary',
+      'circle summary',
+      'week summary',
+    ])) {
+      final paid = s.paidMembers(cur);
+      final open = s.members.length - paid;
+      return pick(
+        'This week, ${Money.fmt(s.collected(cur))} of ${Money.fmt(s.pot)} is confirmed. $paid of ${s.members.length} members are paid and $open ${open == 1 ? "status is" : "statuses are"} still open. The Round $cur pot is for $recipientName and is ${statusText(payout.status, false)}. The deadline was ${Dates.short(s.dueOf(cur))}.${f()}',
+        'This week, ${Money.fmt(s.collected(cur))} out of ${Money.fmt(s.pot)} don confirm. $paid of ${s.members.length} people don pay and $open still get open status. Round $cur pot na for $recipientName and e ${statusText(payout.status, true)}. Deadline na ${Dates.short(s.dueOf(cur))}.${f()}',
+      );
+    }
+
+    if (_has(t, ['who receives next', 'who gets next', 'next recipient'])) {
+      return pick(
+        'The next payout is Round $cur for $recipientName on the current schedule (${Dates.short(s.dueOf(cur))}). The recorded order stays fixed regardless of anyone’s reliability indicator.${f()}',
+        'Next payout na Round $cur for $recipientName for the current schedule (${Dates.short(s.dueOf(cur))}). Reliability indicator no dey change the order.${f()}',
+      );
+    }
+
+    if (_has(t, [
+      'how much have i contributed',
+      'how much did i contribute',
+      'my total contribution',
+    ])) {
+      return pick(
+        'Your ledger shows ${Money.fmt(s.contributedBy('me'))} in confirmed contributions across all recorded rounds.${f()}',
+        'Your ledger show ${Money.fmt(s.contributedBy('me'))} confirmed contribution for all the recorded rounds.${f()}',
+      );
+    }
+
+    if (_has(t, [
+      'next payment due',
+      'next contribution due',
+      'when do i pay',
+    ])) {
+      final obligation = s.myNextObligation;
+      if (obligation == null) {
+        return pick(
+          'You are all paid up. There is no open contribution right now.${f()}',
+          'You don pay everything. No open contribution dey now.${f()}',
+        );
+      }
+      return pick(
+        'Your next contribution is ${Money.fmt(obligation.remainingKobo)} for Round ${obligation.round}, due ${Dates.short(obligation.dueAt)} (${Dates.relative(obligation.dueAt)}).${f()}',
+        'Your next contribution na ${Money.fmt(obligation.remainingKobo)} for Round ${obligation.round}, due ${Dates.short(obligation.dueAt)} (${Dates.relative(obligation.dueAt)}).${f()}',
+      );
+    }
+
+    if (_has(t, ['am i behind', 'do i owe', 'my status'])) {
+      final mine = s.obligationOf(cur, 'me')!;
+      final status = s.statusOf(mine);
+      if (mine.isPaid) {
+        return pick(
+          'You are not behind. Your Round $cur contribution is confirmed as Paid.${f()}',
+          'You no dey behind. Your Round $cur contribution don confirm as Paid.${f()}',
+        );
+      }
+      return pick(
+        'Your Round $cur status is ${status.label}. ${Money.fmt(mine.remainingKobo)} is outstanding; the deadline was ${Dates.short(mine.dueAt)}.${f()}',
+        'Your Round $cur status na ${status.label}. ${Money.fmt(mine.remainingKobo)} remain; deadline na ${Dates.short(mine.dueAt)}.${f()}',
+      );
+    }
+
     // Member-specific factual history
     for (final m in s.members) {
       if (!m.isMe &&
           t.contains(m.name.toLowerCase()) &&
-          _has(t, ['reliab', 'trust', 'score', 'history', 'record', 'late', 'pay'])) {
+          _has(t, [
+            'reliab',
+            'trust',
+            'score',
+            'history',
+            'record',
+            'late',
+            'pay',
+          ])) {
         final h = s.historyOf(m.id);
         return pick(
           'I don\'t give people scores — here\'s the factual record for ${m.name}: ${h.onTime} on time, ${h.late} late, ${h.missed} missed across ${h.roundsCounted} rounds.${f()}',
@@ -61,7 +135,10 @@ class AssistantEngine {
       if (payout.status == PayoutStatus.held) {
         final owing = s
             .unpaid(cur)
-            .map((o) => '${s.nameOf(o.memberId)} ${pidgin ? "owe" : "owes"} ${Money.fmt(o.remainingKobo)}')
+            .map(
+              (o) =>
+                  '${s.nameOf(o.memberId)} ${pidgin ? "owe" : "owes"} ${Money.fmt(o.remainingKobo)}',
+            )
             .join(', ');
         return pick(
           'Round $cur\'s payout (${Money.fmt(payout.amountKobo)} for $recipientName) is on hold because the pot is ${Money.fmt(s.shortfall(cur))} short: $owing. Once the pot is full it goes to the organizer for approval. Nobody gets paid short.${f()}',
@@ -75,23 +152,42 @@ class AssistantEngine {
     }
 
     // Who hasn't paid
-    if (_has(t, ['unpaid', 'owe', 'owing', "hasn't", 'hasnt', 'behind', 'not paid', 'who'])) {
+    if (_has(t, [
+      'unpaid',
+      'owe',
+      'owing',
+      "hasn't",
+      'hasnt',
+      'behind',
+      'not paid',
+      'who',
+    ])) {
       final list = s.unpaid(cur);
       if (list.isEmpty) {
-        return pick('Everyone has paid for Round $cur 🎉${f()}',
-            'Everybody don pay for Round $cur 🎉${f()}');
+        return pick(
+          'Everyone has paid for Round $cur 🎉${f()}',
+          'Everybody don pay for Round $cur 🎉${f()}',
+        );
       }
       final lines = list
-          .map((o) => '• ${s.nameOf(o.memberId)}: ${Money.fmt(o.remainingKobo)} still to pay')
+          .map((o) => '• ${s.nameOf(o.memberId)}: ${s.statusOf(o).label}')
           .join('\n');
       return pick(
-        'For Round $cur, ${list.length} ${list.length == 1 ? "member has" : "members have"} an open balance:\n$lines\n\nYou can nudge them from the Friends tab.${f()}',
-        'For Round $cur, ${list.length} ${list.length == 1 ? "person" : "people"} still get balance:\n$lines\n\nYou fit nudge dem for Friends tab.${f()}',
+        'For Round $cur, ${list.length} ${list.length == 1 ? "member has" : "members have"} an open contribution status:\n$lines\n\nOnly shared ledger statuses are shown; private account details stay private.${f()}',
+        'For Round $cur, ${list.length} ${list.length == 1 ? "person" : "people"} still get open contribution status:\n$lines\n\nNa shared ledger status only; private account details remain private.${f()}',
       );
     }
 
     // My turn
-    if (_has(t, ['turn', 'when', 'collect', 'receive', 'my payout', 'my pot', 'payout'])) {
+    if (_has(t, [
+      'turn',
+      'when',
+      'collect',
+      'receive',
+      'my payout',
+      'my pot',
+      'payout',
+    ])) {
       final mine = s.myPayout;
       if (mine.round == cur) {
         return pick(
@@ -135,8 +231,10 @@ class AssistantEngine {
     if (_has(t, ['pay', 'next', 'due', 'contribution'])) {
       final o = s.myNextObligation;
       if (o == null) {
-        return pick('You\'re all paid up 🎉 Nothing due right now.${f()}',
-            'You don pay everything 🎉 Nothing dey due now.${f()}');
+        return pick(
+          'You\'re all paid up 🎉 Nothing due right now.${f()}',
+          'You don pay everything 🎉 Nothing dey due now.${f()}',
+        );
       }
       final d = Dates.short(o.dueAt);
       return pick(
@@ -145,7 +243,14 @@ class AssistantEngine {
       );
     }
 
-    if (_has(t, ['hi', 'hello', 'hey', 'how far', 'good morning', 'good evening'])) {
+    if (_has(t, [
+      'hi',
+      'hello',
+      'hey',
+      'how far',
+      'good morning',
+      'good evening',
+    ])) {
       return pick(
         'Hi ${s.meName}! 👋 Ask me about your turn, who hasn\'t paid, or why a payout is held.',
         'How far ${s.meName}! 👋 Ask me about your turn, who never pay, or why payout dey hold.',
@@ -163,9 +268,13 @@ class AssistantEngine {
       case PayoutStatus.scheduled:
         return pidgin ? 'dey collect money' : 'collecting contributions';
       case PayoutStatus.held:
-        return pidgin ? 'on hold (pot never full)' : 'on hold (pot not full yet)';
+        return pidgin
+            ? 'on hold (pot never full)'
+            : 'on hold (pot not full yet)';
       case PayoutStatus.awaitingApproval:
-        return pidgin ? 'wait organizer approval' : 'waiting for organizer approval';
+        return pidgin
+            ? 'wait organizer approval'
+            : 'waiting for organizer approval';
       case PayoutStatus.processing:
         return pidgin ? 'dey go (processing)' : 'being sent (processing)';
       case PayoutStatus.settled:

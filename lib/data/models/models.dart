@@ -34,9 +34,39 @@ class Obligation {
   int pendingKobo = 0; // submitted, awaiting confirmation
   DateTime? paidAt;
   bool paidLate = false;
+  bool underReview = false;
 
   int get remainingKobo => amountKobo - paidKobo;
   bool get isPaid => remainingKobo <= 0;
+}
+
+/// The six contribution states defined by the product ledger contract.
+enum ObligationStatus {
+  upcoming,
+  awaitingPayment,
+  paid,
+  partiallyPaid,
+  overdue,
+  underReview,
+}
+
+extension ObligationStatusLabel on ObligationStatus {
+  String get label {
+    switch (this) {
+      case ObligationStatus.upcoming:
+        return 'Upcoming';
+      case ObligationStatus.awaitingPayment:
+        return 'Awaiting payment';
+      case ObligationStatus.paid:
+        return 'Paid';
+      case ObligationStatus.partiallyPaid:
+        return 'Partially paid';
+      case ObligationStatus.overdue:
+        return 'Overdue';
+      case ObligationStatus.underReview:
+        return 'Under review';
+    }
+  }
 }
 
 enum PayoutStatus { scheduled, held, awaitingApproval, processing, settled }
@@ -124,15 +154,15 @@ class DraftCircle {
   final bool joined;
 
   DraftCircle asJoined() => DraftCircle(
-        name: name,
-        amountKobo: amountKobo,
-        size: size,
-        frequency: frequency,
-        code: code,
-        organizer: organizer,
-        memberCount: memberCount + 1,
-        joined: true,
-      );
+    name: name,
+    amountKobo: amountKobo,
+    size: size,
+    frequency: frequency,
+    code: code,
+    organizer: organizer,
+    memberCount: memberCount + 1,
+    joined: true,
+  );
 }
 
 enum Mark { onTime, late, partial, overdue, missed, pending, upcoming }
