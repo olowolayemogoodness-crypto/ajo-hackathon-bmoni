@@ -1,18 +1,22 @@
 import asyncio
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 
 import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.identity import VerifiedIdentity
 from app.core.config import get_settings
 from app.main import create_app
+from app.modules.circles.models import Circle, Membership
 from app.modules.users.models import User
 
 POSTGRES_URL = os.environ.get("AJO_TEST_POSTGRES_URL")
@@ -37,11 +41,12 @@ def test_postgres_migration_and_concurrent_first_session_requests(
 
     engine = create_engine(database_url)
     try:
-        expected_tables = {"alembic_version", "users", "circles", "memberships"}
-        existing_tables = set(inspect(engine).get_table_names()) - expected_tables
-        if existing_tables:
+        schema_tables = {"alembic_version", "users", "circles", "memberships"}
+        existing_tables = set(inspect(engine).get_table_names())
+        unexpected_tables = existing_tables - schema_tables
+        if unexpected_tables:
             pytest.fail(
-                f"Expected a dedicated test database; found other tables: {existing_tables}"
+                f"Expected a dedicated test database; found other tables: {unexpected_tables}"
             )
 
         monkeypatch.setenv("AJO_DATABASE_URL", str(database_url))
@@ -49,8 +54,143 @@ def test_postgres_migration_and_concurrent_first_session_requests(
         backend_root = Path(__file__).resolve().parents[1]
         alembic_config = Config(str(backend_root / "alembic.ini"))
         alembic_config.set_main_option("script_location", str(backend_root / "migrations"))
+        if "alembic_version" in existing_tables:
+            command.downgrade(alembic_config, "base")
+        elif existing_tables:
+            pytest.fail("Refusing to reset tables without an Alembic revision in the test database")
+        assert set(inspect(engine).get_table_names()).issubset({"alembic_version"})
+
+        with engine.connect() as connection:
+            postgres_version = connection.scalar(text("SHOW server_version"))
+        print(f"PostgreSQL server version: {postgres_version}")
+
         command.upgrade(alembic_config, "head")
-        assert expected_tables.issubset(inspect(engine).get_table_names())
+        assert schema_tables.issubset(inspect(engine).get_table_names())
+
+        inspector = inspect(engine)
+        membership_foreign_keys = {
+            (foreign_key["constrained_columns"][0], foreign_key["referred_table"]): (
+                foreign_key["options"].get("ondelete")
+            )
+            for foreign_key in inspector.get_foreign_keys("memberships")
+        }
+        assert membership_foreign_keys == {
+            ("circle_id", "circles"): "RESTRICT",
+            ("user_id", "users"): "RESTRICT",
+        }
+        assert any(
+            unique_constraint["column_names"] == ["circle_id", "user_id"]
+            for unique_constraint in inspector.get_unique_constraints("memberships")
+        )
+        check_constraints = {
+            constraint["name"] for constraint in inspector.get_check_constraints("memberships")
+        }
+        assert {"ck_memberships_role", "ck_memberships_status"}.issubset(check_constraints)
+
+        with Session(engine) as session, session.begin():
+            session.add_all(
+                [
+                    User(id="user-constraints", firebase_uid="firebase-constraints"),
+                    User(id="user-concurrent", firebase_uid="firebase-concurrent"),
+                    Circle(id="circle-constraints", name="Constraint Circle"),
+                    Circle(id="circle-concurrent", name="Concurrent Circle"),
+                ]
+            )
+
+        def expect_constraint_failure(membership: Membership) -> None:
+            with pytest.raises(IntegrityError):
+                with Session(engine) as session, session.begin():
+                    session.add(membership)
+                    session.flush()
+
+        expect_constraint_failure(
+            Membership(
+                id="invalid-role",
+                circle_id="circle-constraints",
+                user_id="user-constraints",
+                role="owner",
+                status="active",
+            )
+        )
+        expect_constraint_failure(
+            Membership(
+                id="invalid-status",
+                circle_id="circle-constraints",
+                user_id="user-constraints",
+                role="member",
+                status="pending",
+            )
+        )
+        expect_constraint_failure(
+            Membership(
+                id="invalid-circle-fk",
+                circle_id="missing-circle",
+                user_id="user-constraints",
+                role="member",
+                status="active",
+            )
+        )
+        expect_constraint_failure(
+            Membership(
+                id="invalid-user-fk",
+                circle_id="circle-constraints",
+                user_id="missing-user",
+                role="member",
+                status="active",
+            )
+        )
+
+        with pytest.raises(RuntimeError, match="force transaction rollback"):
+            with Session(engine) as session, session.begin():
+                session.add(
+                    Membership(
+                        id="rolled-back-membership",
+                        circle_id="circle-constraints",
+                        user_id="user-constraints",
+                        role="member",
+                        status="active",
+                    )
+                )
+                session.flush()
+                raise RuntimeError("force transaction rollback")
+        with Session(engine) as session:
+            assert session.get(Membership, "rolled-back-membership") is None
+
+        barrier = Barrier(2)
+
+        def insert_concurrent_membership(membership_id: str) -> bool:
+            try:
+                with Session(engine) as session, session.begin():
+                    barrier.wait()
+                    session.add(
+                        Membership(
+                            id=membership_id,
+                            circle_id="circle-concurrent",
+                            user_id="user-concurrent",
+                            role="member",
+                            status="active",
+                        )
+                    )
+                return True
+            except IntegrityError:
+                return False
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            membership_results = list(
+                executor.map(
+                    insert_concurrent_membership,
+                    ("concurrent-membership-1", "concurrent-membership-2"),
+                )
+            )
+        assert sorted(membership_results) == [False, True]
+        with Session(engine) as session:
+            memberships = session.scalars(
+                select(Membership).where(
+                    Membership.circle_id == "circle-concurrent",
+                    Membership.user_id == "user-concurrent",
+                )
+            ).all()
+            assert len(memberships) == 1
 
         app = create_app(engine=engine, identity_verifier=FixedVerifier())
 
@@ -74,6 +214,11 @@ def test_postgres_migration_and_concurrent_first_session_requests(
                 select(User).where(User.firebase_uid == "postgres-concurrent-uid")
             ).all()
         assert len(users) == 1
+
+        command.downgrade(alembic_config, "base")
+        assert set(inspect(engine).get_table_names()).issubset({"alembic_version"})
+        command.upgrade(alembic_config, "head")
+        assert schema_tables.issubset(inspect(engine).get_table_names())
     finally:
         engine.dispose()
         get_settings.cache_clear()
