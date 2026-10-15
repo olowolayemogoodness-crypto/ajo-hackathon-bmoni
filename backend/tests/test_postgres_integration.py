@@ -10,13 +10,14 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.auth.identity import VerifiedIdentity
 from app.core.config import get_settings
 from app.main import create_app
-from app.modules.circles.models import Circle, Membership
+from app.modules.circles.membership_service import leave_circle
+from app.modules.circles.models import Circle, Membership, MembershipEvent
 from app.modules.users.models import User
 
 POSTGRES_URL = os.environ.get("AJO_TEST_POSTGRES_URL")
@@ -41,7 +42,13 @@ def test_postgres_migration_and_concurrent_first_session_requests(
 
     engine = create_engine(database_url)
     try:
-        schema_tables = {"alembic_version", "users", "circles", "memberships"}
+        schema_tables = {
+            "alembic_version",
+            "users",
+            "circles",
+            "memberships",
+            "membership_events",
+        }
         existing_tables = set(inspect(engine).get_table_names())
         unexpected_tables = existing_tables - schema_tables
         if unexpected_tables:
@@ -214,6 +221,86 @@ def test_postgres_migration_and_concurrent_first_session_requests(
                 select(User).where(User.firebase_uid == "postgres-concurrent-uid")
             ).all()
         assert len(users) == 1
+
+        with Session(engine) as session, session.begin():
+            session.add_all(
+                [
+                    User(id="user-organizer-a", firebase_uid="firebase-organizer-a"),
+                    User(id="user-organizer-b", firebase_uid="firebase-organizer-b"),
+                    Circle(id="circle-organizers", name="Organizer Circle"),
+                ]
+            )
+            session.flush()
+            session.add_all(
+                [
+                    Membership(
+                        id="membership-organizer-a",
+                        circle_id="circle-organizers",
+                        user_id="user-organizer-a",
+                        role="organizer",
+                        status="active",
+                    ),
+                    Membership(
+                        id="membership-organizer-b",
+                        circle_id="circle-organizers",
+                        user_id="user-organizer-b",
+                        role="organizer",
+                        status="active",
+                    ),
+                ]
+            )
+
+        def leave_as_organizer(firebase_uid: str) -> str | int:
+            with Session(engine) as session:
+                try:
+                    leave_circle(
+                        session,
+                        VerifiedIdentity(firebase_uid, firebase_uid),
+                        "circle-organizers",
+                        f"request-{firebase_uid}",
+                        None,
+                    )
+                    return "left"
+                except HTTPException as exc:
+                    return exc.status_code
+
+        from fastapi import HTTPException
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            organizer_results = list(
+                executor.map(leave_as_organizer, ("firebase-organizer-a", "firebase-organizer-b"))
+            )
+        assert sorted(organizer_results, key=str) == sorted(("left", 409), key=str)
+        with Session(engine) as session:
+            active_organizers = session.scalars(
+                select(Membership).where(
+                    Membership.circle_id == "circle-organizers",
+                    Membership.status == "active",
+                    Membership.role == "organizer",
+                )
+            ).all()
+            assert len(active_organizers) == 1
+            assert (
+                len(
+                    session.scalars(
+                        select(MembershipEvent).where(
+                            MembershipEvent.circle_id == "circle-organizers"
+                        )
+                    ).all()
+                )
+                == 1
+            )
+
+            with pytest.raises(SQLAlchemyError):
+                with session.begin_nested():
+                    event = session.scalar(
+                        select(MembershipEvent).where(
+                            MembershipEvent.circle_id == "circle-organizers"
+                        )
+                    )
+                    assert event is not None
+                    event.reason = "mutated history"
+                    session.flush()
 
         command.downgrade(alembic_config, "base")
         assert set(inspect(engine).get_table_names()).issubset({"alembic_version"})

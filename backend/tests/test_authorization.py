@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -13,7 +13,7 @@ from app.auth.identity import InvalidFirebaseToken, VerifiedIdentity
 from app.core.config import Settings
 from app.db.base import Base
 from app.main import create_app
-from app.modules.circles.models import Circle, Membership
+from app.modules.circles.models import Circle, Membership, MembershipEvent
 from app.modules.users.models import User
 
 
@@ -42,7 +42,13 @@ def make_app(identities: dict[str, VerifiedIdentity]):
     return app, engine
 
 
-def request(app, method: str, path: str, token: str) -> httpx.Response:
+def request(
+    app,
+    method: str,
+    path: str,
+    token: str,
+    body: dict | None = None,
+) -> httpx.Response:
     async def send_request() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -50,6 +56,7 @@ def request(app, method: str, path: str, token: str) -> httpx.Response:
                 method,
                 path,
                 headers={"Authorization": f"Bearer {token}"},
+                json=body,
             )
 
     return asyncio.run(send_request())
@@ -175,4 +182,255 @@ def test_database_rejects_duplicate_membership_and_unknown_role() -> None:
         session.add(Membership(user_id=user_id, circle_id=circle_id, role="owner", status="active"))
         with pytest.raises(IntegrityError):
             session.commit()
+    engine.dispose()
+
+
+def test_organizer_can_revoke_member_and_access_ends_immediately() -> None:
+    organizer = VerifiedIdentity("uid-organizer", "Organizer")
+    member = VerifiedIdentity("uid-member", "Member")
+    app, engine = make_app({"organizer-token": organizer, "member-token": member})
+    organizer_id, circle_id = add_user_circle_membership(
+        engine,
+        firebase_uid=organizer.firebase_uid,
+        circle_name="Membership Circle",
+        role="organizer",
+    )
+    with Session(engine) as session:
+        member_user = User(firebase_uid=member.firebase_uid, display_name="Member")
+        session.add(member_user)
+        session.flush()
+        target = Membership(
+            circle_id=circle_id,
+            user_id=member_user.id,
+            role="member",
+            status="active",
+        )
+        session.add(target)
+        session.commit()
+        member_user_id = member_user.id
+        membership_id = target.id
+
+    response = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{membership_id}/revoke",
+        "organizer-token",
+        {"reason": "Repeatedly violated circle rules"},
+    )
+    access = request(app, "GET", f"/v1/circles/{circle_id}", "member-token")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "revoked"
+    assert response.json()["circleId"] == circle_id
+    assert access.status_code == 404
+    with Session(engine) as session:
+        membership = session.get(Membership, membership_id)
+        event = session.get(MembershipEvent, response.json()["eventId"])
+        assert membership is not None and membership.status == "revoked"
+        assert event is not None
+        assert event.user_id == member_user_id
+        assert event.actor_user_id == organizer_id
+        assert event.reason == "Repeatedly violated circle rules"
+        assert event.previous_status == "active"
+        assert event.resulting_status == "revoked"
+    engine.dispose()
+
+
+def test_member_can_leave_but_cannot_revoke_another_member() -> None:
+    organizer = VerifiedIdentity("uid-organizer", "Organizer")
+    member = VerifiedIdentity("uid-member", "Member")
+    other = VerifiedIdentity("uid-other", "Other")
+    app, engine = make_app(
+        {
+            "organizer-token": organizer,
+            "member-token": member,
+            "other-token": other,
+        }
+    )
+    add_user_circle_membership(
+        engine,
+        firebase_uid=organizer.firebase_uid,
+        circle_name="Membership Circle",
+        role="organizer",
+    )
+    with Session(engine) as session:
+        circle_id = session.scalar(select(Circle.id))
+        member_user = User(firebase_uid=member.firebase_uid)
+        other_user = User(firebase_uid=other.firebase_uid)
+        session.add_all([member_user, other_user])
+        session.flush()
+        member_membership = Membership(
+            circle_id=circle_id, user_id=member_user.id, role="member", status="active"
+        )
+        other_membership = Membership(
+            circle_id=circle_id, user_id=other_user.id, role="member", status="active"
+        )
+        session.add_all([member_membership, other_membership])
+        session.commit()
+        member_membership_id = member_membership.id
+        other_membership_id = other_membership.id
+
+    unauthorized = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{other_membership_id}/revoke",
+        "member-token",
+        {"reason": "Not allowed"},
+    )
+    left = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/me/leave",
+        "member-token",
+    )
+    access = request(app, "GET", f"/v1/circles/{circle_id}", "member-token")
+
+    assert unauthorized.status_code == 403
+    assert left.status_code == 200
+    assert left.json()["membershipId"] == member_membership_id
+    assert left.json()["status"] == "inactive"
+    assert access.status_code == 404
+    with Session(engine) as session:
+        event = session.get(MembershipEvent, left.json()["eventId"])
+        assert event is not None
+        assert event.action == "member_left"
+        assert event.reason is None
+    engine.dispose()
+
+
+def test_revoke_requires_reason_and_final_organizer_cannot_leave() -> None:
+    organizer = VerifiedIdentity("uid-organizer", "Organizer")
+    app, engine = make_app({"organizer-token": organizer})
+    _, circle_id = add_user_circle_membership(
+        engine,
+        firebase_uid=organizer.firebase_uid,
+        circle_name="Organizer Circle",
+        role="organizer",
+    )
+
+    missing_reason = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/missing/revoke",
+        "organizer-token",
+        {"reason": "   "},
+    )
+    final_organizer_leave = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/me/leave",
+        "organizer-token",
+        {},
+    )
+
+    assert missing_reason.status_code == 422
+    assert final_organizer_leave.status_code == 409
+    with Session(engine) as session:
+        assert session.scalar(select(MembershipEvent)) is None
+    engine.dispose()
+
+
+def test_promoted_successor_allows_previous_final_organizer_to_leave() -> None:
+    organizer = VerifiedIdentity("uid-organizer", "Organizer")
+    member = VerifiedIdentity("uid-member", "Member")
+    app, engine = make_app({"organizer-token": organizer, "member-token": member})
+    add_user_circle_membership(
+        engine,
+        firebase_uid=organizer.firebase_uid,
+        circle_name="Organizer Circle",
+        role="organizer",
+    )
+    with Session(engine) as session:
+        circle_id = session.scalar(select(Circle.id))
+        member_user = User(firebase_uid=member.firebase_uid)
+        session.add(member_user)
+        session.flush()
+        membership = Membership(
+            circle_id=circle_id,
+            user_id=member_user.id,
+            role="member",
+            status="active",
+        )
+        session.add(membership)
+        session.commit()
+        membership_id = membership.id
+
+    promoted = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{membership_id}/promote-organizer",
+        "organizer-token",
+    )
+    left = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/me/leave",
+        "organizer-token",
+        {},
+    )
+
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "organizer"
+    assert left.status_code == 200
+    with Session(engine) as session:
+        events = session.scalars(select(MembershipEvent).order_by(MembershipEvent.action)).all()
+        assert {event.action for event in events} == {"organizer_promoted", "member_left"}
+        assert (
+            session.scalar(
+                select(Membership).where(
+                    Membership.circle_id == circle_id,
+                    Membership.status == "active",
+                    Membership.role == "organizer",
+                )
+            )
+            is not None
+        )
+    engine.dispose()
+
+
+def test_membership_transition_rolls_back_when_audit_insert_fails() -> None:
+    organizer = VerifiedIdentity("uid-organizer", "Organizer")
+    member = VerifiedIdentity("uid-member", "Member")
+    app, engine = make_app({"organizer-token": organizer, "member-token": member})
+    add_user_circle_membership(
+        engine,
+        firebase_uid=organizer.firebase_uid,
+        circle_name="Membership Circle",
+        role="organizer",
+    )
+    with Session(engine) as session:
+        circle_id = session.scalar(select(Circle.id))
+        member_user = User(firebase_uid=member.firebase_uid)
+        session.add(member_user)
+        session.flush()
+        membership = Membership(
+            circle_id=circle_id,
+            user_id=member_user.id,
+            role="member",
+            status="active",
+        )
+        session.add(membership)
+        session.commit()
+        membership_id = membership.id
+        session.execute(
+            text(
+                "CREATE TRIGGER fail_membership_event BEFORE INSERT ON membership_events "
+                "BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END"
+            )
+        )
+        session.commit()
+
+    response = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{membership_id}/revoke",
+        "organizer-token",
+        {"reason": "Test rollback"},
+    )
+
+    assert response.status_code == 503
+    with Session(engine) as session:
+        membership = session.get(Membership, membership_id)
+        assert membership is not None and membership.status == "active"
+        assert session.scalar(select(MembershipEvent)) is None
     engine.dispose()

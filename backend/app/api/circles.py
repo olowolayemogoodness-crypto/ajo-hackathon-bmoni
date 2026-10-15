@@ -1,7 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,12 @@ from app.api.session import get_current_identity
 from app.auth.authorization import require_active_membership
 from app.auth.identity import VerifiedIdentity
 from app.db.session import get_db_session
+from app.modules.circles.membership_service import (
+    MembershipActionResult,
+    leave_circle,
+    promote_organizer,
+    revoke_membership,
+)
 from app.modules.circles.repository import get_circle_for_active_member
 from app.modules.users.repository import resolve_user
 
@@ -18,6 +24,51 @@ router = APIRouter(prefix="/v1/circles", tags=["circles"])
 class CircleResponse(BaseModel):
     id: str
     name: str
+
+
+class MembershipReasonRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def require_non_whitespace_reason(cls, value: str) -> str:
+        reason = value.strip()
+        if not reason:
+            raise ValueError("reason must not be blank")
+        return reason
+
+
+class MembershipLeaveRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class MembershipActionResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    membership_id: str = Field(alias="membershipId")
+    circle_id: str = Field(alias="circleId")
+    status: str
+    role: str
+    event_id: str = Field(alias="eventId")
+    request_id: str = Field(alias="requestId")
+
+
+def _membership_action_response(result: MembershipActionResult) -> MembershipActionResponse:
+    return MembershipActionResponse(
+        membership_id=result.membership_id,
+        circle_id=result.circle_id,
+        status=result.status,
+        role=result.role,
+        event_id=result.event_id,
+        request_id=result.request_id,
+    )
 
 
 @router.get("/{circle_id}", response_model=CircleResponse)
@@ -33,5 +84,79 @@ def get_circle(
         if circle is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return CircleResponse(id=circle.id, name=circle.name)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+
+@router.post(
+    "/{circle_id}/memberships/{membership_id}/revoke",
+    response_model=MembershipActionResponse,
+)
+def revoke_circle_membership(
+    circle_id: str,
+    membership_id: str,
+    body: MembershipReasonRequest,
+    request: Request,
+    identity: Annotated[VerifiedIdentity, Depends(get_current_identity)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> MembershipActionResponse:
+    try:
+        result = revoke_membership(
+            session,
+            identity,
+            circle_id,
+            membership_id,
+            request.state.request_id,
+            body.reason,
+        )
+        return _membership_action_response(result)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+
+@router.post(
+    "/{circle_id}/memberships/me/leave",
+    response_model=MembershipActionResponse,
+)
+def leave_circle_membership(
+    circle_id: str,
+    request: Request,
+    identity: Annotated[VerifiedIdentity, Depends(get_current_identity)],
+    session: Annotated[Session, Depends(get_db_session)],
+    body: MembershipLeaveRequest | None = None,
+) -> MembershipActionResponse:
+    try:
+        result = leave_circle(
+            session,
+            identity,
+            circle_id,
+            request.state.request_id,
+            body.reason if body is not None else None,
+        )
+        return _membership_action_response(result)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+
+@router.post(
+    "/{circle_id}/memberships/{membership_id}/promote-organizer",
+    response_model=MembershipActionResponse,
+)
+def promote_circle_organizer(
+    circle_id: str,
+    membership_id: str,
+    request: Request,
+    identity: Annotated[VerifiedIdentity, Depends(get_current_identity)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> MembershipActionResponse:
+    try:
+        result = promote_organizer(
+            session,
+            identity,
+            circle_id,
+            membership_id,
+            request.state.request_id,
+        )
+        return _membership_action_response(result)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
