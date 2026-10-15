@@ -118,7 +118,7 @@ These routes are proposed only; they are not implemented.
 | `POST /v1/assistant/queries` | Required; later stage | Deferred until authorized reporting exists. Request and response below are proposals. |
 | `POST /v1/webhooks/bmoni` | Provider-authenticated; conditional | Deferred pending official provider docs and verified signature/replay requirements. Not a user-authenticated route. |
 
-Requester-approved MVP join policy: a valid invitation admits an authenticated user immediately after explicit rule acceptance and backend validation; organizer approval is not required. Expired, revoked, exhausted, duplicate, or capacity-violating invitations are rejected. Membership becomes active only after backend processing. Invitation expiry and usage-limit values remain to be approved before invitation implementation.
+The request body carries the invitation and rules acceptance described above; membership is not active until the backend completes those checks.
 
 `POST /v1/circles/{circleId}/memberships` request:
 
@@ -161,7 +161,9 @@ Request:
 }
 ```
 
-The backend derives the member from the authenticated user and verifies active membership and ownership of the obligation. `amountKobo` must be a positive integer no greater than current outstanding amount. Each intent is bound to one obligation; no client-supplied member ID or payout/status field is accepted.
+The backend derives the member from the authenticated user and verifies active membership and ownership of the obligation. `amountKobo` must be a positive integer no greater than the currently unreserved outstanding amount. Each intent is bound to one obligation; no client-supplied member ID or payout/status field is accepted.
+
+Creation runs in one database transaction that locks the obligation (or uses an equivalent serializable constraint), calculates `availableKobo = expectedKobo - confirmedAllocatedKobo - reservedKobo`, where `reservedKobo` sums both `active` and `release_pending` reservations, rejects an amount above `availableKobo`, and inserts the intent, reservation, audit event, and any provider-command/outbox record atomically. A uniqueness/locking rule serializes concurrent intent creation so confirmed allocations plus active/release-pending reservations never exceed the obligation amount. Dispatch any provider command outside the transaction with a stable provider idempotency/reference key. Provider-specific guarantees require official documentation. A retry uses the same intent and provider key, never a new collection.
 
 Response proposal (`201`):
 
@@ -173,6 +175,12 @@ Response proposal (`201`):
   "currency": "NGN",
   "status": "pending",
   "mode": "simulated",
+  "reservation": {
+    "status": "active",
+    "reservedKobo": 250000,
+    "expiresAt": "2026-10-15T12:15:00Z"
+  },
+  "availableKobo": 250000,
   "createdAt": "2026-10-15T12:00:00Z",
   "requestId": "req_opaque"
 }
@@ -180,11 +188,19 @@ Response proposal (`201`):
 
 The intent is not a confirmed contribution. Recheck outstanding amount under transaction/locking when applying a later event because other confirmed payments can race.
 
+#### Atomic confirmation and allocation
+
+After signature/authenticity checks, process a successful provider event or authorized simulation in one database transaction with a consistent lock order: obligation, intent/reservation, then event/allocation records. Enforce unique provider event identity and at most one successful collection/allocation per intent for the MVP. In that transaction, deduplicate the event, revalidate intent/reference/currency/amount and reservation state, insert the immutable payment event and allocation, update the intent and reservation to `confirmed`, recalculate the obligation, and insert audit evidence. These writes commit or roll back together. A duplicate event or concurrent callback returns the prior outcome; it cannot create a second allocation. If a provider requires multiple successful captures per intent, define that separately before implementation.
+
+For a verified event that cannot safely be allocated because it is mismatched or unreserved, persist the event and a review case without inserting an obligation allocation. Do not partially commit event-processing steps.
+
 ### Simulated confirmation
 
 `POST /v1/demo/payment-intents/{intentId}/confirm`
 
-This route exists only in explicit demo configuration with synthetic identities/data. It must be disabled in non-demo environments, authorized as a demo action, idempotent, and labelled `simulated`. It exercises the same amount, allocation, and ledger transaction rules. Provider outage never invokes it automatically. No BMONI client endpoint may mark an intent confirmed.
+This route is registered only when an explicit, validated demo configuration is active; simulation is disabled by default. Startup must fail closed if simulation is enabled in a production/non-demo environment or the configured data source is not marked synthetic. Configuration is server-owned and cannot be enabled by request parameters. Outside demo mode, the route is absent or returns a non-disclosing `404`.
+
+The caller must have a verified Firebase identity mapped to an active `demo_operator` permission. That permission is provisioned out-of-band and scoped to the approved synthetic demo tenant/circles; it cannot be self-assigned or supplied in a request body. The operator may confirm only pending `simulated` intents tied to synthetic members in that scope. The endpoint is idempotent, labels resulting facts `simulated`, and records operator, intent, circle, amount, time, and request ID in an audit event. Provider outage never invokes it automatically. No BMONI client endpoint may mark an intent confirmed.
 
 Request body: empty. Response proposal:
 
@@ -220,7 +236,7 @@ Request:
 }
 ```
 
-This route is disabled outside explicit demo configuration and requires demo-operator authorization plus an `Idempotency-Key`. It creates a new linked reversal event, never edits or deletes the original transaction. The response returns reversal event ID, original transaction ID, reversed amount in integer kobo, resulting obligation state, `mode: simulated`, and request ID. A repeated key returns the same reversal; a second distinct reversal of an already fully reversed transaction is rejected with `409 state_conflict`.
+This route is available only under the same fail-closed demo configuration and `demo_operator` scope as simulated confirmation. It requires an `Idempotency-Key` and a synthetic transaction in that operator's approved scope. It creates a new linked reversal event, never edits or deletes the original transaction. The response returns reversal event ID, original transaction ID, reversed amount in integer kobo, resulting obligation state, `mode: simulated`, and request ID. A repeated key returns the same reversal; a second distinct reversal of an already fully reversed transaction is rejected with `409 state_conflict`. Every action is audited.
 
 Response proposal:
 
@@ -252,7 +268,9 @@ Request:
 }
 ```
 
-The backend verifies that the payout is awaiting approval and still eligible, then verifies that the actor is the organizer or the accepted co-approver appointed for the circle and is not the intended recipient. Approval records actor/time and is atomic with the state transition. Response proposal:
+In one database transaction, lock the payout and all obligations, allocations, reversals, and blocking review records that determine its eligibility. Recompute eligibility from those locked authoritative records; do not trust the previously stored `eligible` or `awaiting_approval` status. If eligibility no longer holds, transition the payout to `held` and return a state conflict without approving or enqueueing processing. Otherwise verify that the actor is the organizer or accepted co-approver and is not the intended recipient, record actor/time, and atomically create a unique payout attempt and outbox command. A uniqueness constraint permits at most one unresolved attempt per payout. The response's `processing` state means a durable attempt was queued; it is not evidence that the provider accepted or settled it.
+
+The worker claims the outbox command and, in a database transaction, locks the same eligibility records, recomputes eligibility, and records a unique attempt ID plus stable merchant reference before releasing the transaction and making the external call. If a reversal/dispute commits before this dispatch authorization, cancel the unsent command and hold the payout. The database transaction cannot make the provider call atomic: if the call times out, the worker crashes after sending, or the outcome is otherwise uncertain, keep the attempt unresolved and payout `processing`; do not create or send a new attempt. Reconcile by querying the provider using the same reference/idempotency key where supported. Only retry with the same provider key if official provider documentation guarantees idempotent replay; otherwise require definitive provider status or manual reconciliation before another submission. A reversal after dispatch authorization cannot be assumed to cancel an in-flight transfer; mark the attempt for reconciliation and do not issue a duplicate transfer. Response proposal:
 
 ```json
 {
@@ -314,6 +332,25 @@ If the organizer is conflicted, the case is escalated and remains unresolved unt
 
 ## 7. Permitted state transitions (proposed)
 
+### Payment reservation
+
+| Current | Allowed next | Condition |
+|---|---|---|
+| `active` | `confirmed` | Verified provider success or authorized simulation; reservation is consumed atomically into its allocation |
+| `active` | `release_pending` | Local expiry or cancellation requested while the provider may still collect; keep the amount reserved |
+| `active` | `cancelled` | Verified provider failure or simulation terminal event confirms no collection occurred |
+| `release_pending` | `expired` or `cancelled` | Provider terminal/cancellation evidence or simulation terminal event confirms no later collection can occur |
+| `release_pending` | `confirmed` | Verified delayed success arrives while reservation is still held; consume reservation atomically into its allocation |
+| `confirmed`, `expired`, `cancelled` | none | Terminal reservation; a later reversal is a new linked event |
+
+Only `active` and `release_pending` reservations reduce available balance. A local TTL expiring is not proof of provider cancellation. If a late success arrives after a reservation was terminally released, preserve the verified provider event and amount but leave it unapplied and under review; do not consume another intent's reservation, auto-carry it to another obligation, or imply a refund.
+
+#### Late success after reservation release
+
+The handler durably deduplicates the provider event and creates an `unapplied_funds` record plus a reconciliation case linked to the terminal intent, provider reference, amount, and evidence. Do not reopen the reservation, allocate the amount to the obligation, count it as a contribution, or apply it to another member/period. This records the verified receipt without double-crediting the ledger or silently discarding the collection.
+
+An authorized payment-operations reviewer must reconcile the provider transaction and record a decision. If the charge is valid but cannot be allocated, a refund is a separate provider operation with its own authorization, idempotency key, attempt record, and verified refund evidence; an internal ledger correction does not prove a refund. If refund capability or outcome is unavailable/uncertain, keep the unapplied amount and case open, escalate for manual resolution, and do not submit another refund attempt without reconciliation. Approve the reviewer role and provider-specific refund path before enabling collection.
+
 ### Payment intent
 
 | Current | Allowed next | Condition |
@@ -321,9 +358,13 @@ If the organizer is conflicted, the case is escalated and remains unresolved unt
 | `pending` | `confirmed` | Verified provider success or authorized simulated event; amount and reference checks pass |
 | `pending` | `failed` | Verified provider failure or explicit simulation failure |
 | `pending` | `review_required` | Provider mismatch, ambiguous result, or reconciliation required |
-| `pending` | `cancelled` | Only if the selected provider/mode supports verified cancellation |
+| `pending` | `cancellation_pending` | Cancellation or expiry requested while provider collection may still complete |
+| `cancellation_pending` | `cancelled` or `expired` | Provider terminal/cancellation evidence or simulation terminal event; release reservation atomically |
+| `cancellation_pending` | `confirmed` or `review_required` | Delayed success arrives; apply only while reservation remains held, otherwise keep unapplied for review |
 | `review_required` | `confirmed` or `failed` | Authorized reconciliation with evidence and audit |
-| `confirmed`, `failed`, `cancelled` | none | Terminal; a later correction/reversal is a new linked event, not an intent rewrite |
+| `confirmed`, `failed`, `cancelled`, `expired` | none | Terminal; a later correction/reversal is a new linked event, not an intent rewrite |
+
+Reservation and payment-intent states are distinct but coordinated. Confirmation consumes the reservation and creates its allocation atomically. If an event is ambiguous, the payment intent moves to `review_required` while the reservation remains `active` or `release_pending` and continues to reduce available balance. A local timeout alone must not release funds while a provider can still collect.
 
 Duplicate event delivery returns its prior processing result and creates no second financial effect. An event amount greater than the intent is held wholly for review. If a matching verified intent races with another payment and its obligation's remaining amount has fallen, allocate at most the locked remainder and record excess as unapplied/review-required; no automatic carry-forward or refund.
 
@@ -354,13 +395,17 @@ Use `held` as the single public hold status; `on_hold` is not a separate state. 
 | `scheduled` | `held` | Grace has passed with a shortfall, or a blocking dispute/reconciliation prevents eligibility |
 | `held` | `eligible` | Shortfall/review is resolved and eligibility is recomputed successfully |
 | `eligible` | `awaiting_approval` | Eligibility snapshot is committed and approval is required |
+| `eligible` | `held` | Reversal, accepted dispute, or other blocking fact invalidates eligibility before approval/submission |
 | `awaiting_approval` | `processing` | Authorized non-recipient organizer/co-approver approves; eligibility rechecked transactionally |
 | `awaiting_approval` | `held` | Eligibility is lost or a blocking review is opened before approval |
 | `processing` | `settled` | Verified provider settlement or explicit authorized demo settlement evidence |
 | `processing` | `failed` | Verified provider failure; no settlement evidence exists |
+| `processing` | `held` | A queued payout attempt has not yet been submitted to the provider and a final eligibility check fails; cancel the unsent attempt atomically |
 | `settled` | `reversed` | Verified provider reversal or explicit authorized simulated reversal event |
 
-No other transition is permitted. A failed payout is terminal in the initial contract; any retry requires a separately reviewed payout-attempt contract and verified evidence that no settlement occurred. An ambiguous provider timeout leaves the payout `processing` pending reconciliation; it must not trigger a duplicate attempt. A payout recipient cannot approve their own payout. Approval/processing does not itself establish settlement.
+Eligibility is revalidated transactionally at approval and again immediately before provider submission. Lock the payout and all rows used to derive eligibility, or use an equivalent version/serialization mechanism. A reversal/dispute that commits first forces `held`; approval cannot race past it. If the provider request has already been sent, later invalidation requires reconciliation and must not trigger a duplicate attempt. A failed payout is terminal in the initial contract; any retry requires a separately reviewed payout-attempt contract and verified evidence that no settlement occurred. An ambiguous provider timeout leaves the payout `processing` pending reconciliation. A payout recipient cannot approve their own payout. Approval/processing does not itself establish settlement.
+
+The durable payout-attempt record has these proposed states: `queued`, `dispatch_authorized`, `provider_pending`, `outcome_unknown`, `settled`, `failed`, and `cancelled_unsent`. The worker moves `queued` to `dispatch_authorized` in the same transaction as the final locked eligibility check. That commit is the dispatch authorization point: a reversal/dispute committed before it cancels the unsent attempt and holds the payout; one committed after it is treated as racing an in-flight provider operation and requires reconciliation. `outcome_unknown` is entered after timeout, connection loss, or a crash where it is not provable whether the request reached the provider. It cannot be reset to `queued` or retried with a new key. Resolve it through provider lookup/reconciliation; replay the same key only if official provider documentation guarantees idempotency. Without that guarantee, require manual reconciliation before any further submission.
 
 ### Dispute
 
