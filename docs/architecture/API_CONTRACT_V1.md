@@ -1,6 +1,6 @@
 # Ajo API Contract v1 (Draft)
 
-- **Status:** Proposed contract; no routes currently exist in the inspected repository
+- **Status:** Draft contract; identity, circle-read, and membership lifecycle routes have backend implementations, while remaining endpoints are proposals pending API/mobile review
 - **Depends on:** Approval of `STAGE_1_ARCHITECTURE_DECISIONS.md`
 - **Audience:** Backend, Flutter, intelligence, and QA owners
 
@@ -101,9 +101,9 @@ Proposed values: `simulated`, `sandbox`. This describes the selected operation p
 
 Firebase token verification is not a substitute for per-resource authorization. Do not trust `userId`, member ID, circle role, or organizer status from Flutter request bodies.
 
-## 5. Initial read/session endpoint proposals
+## 5. Initial read/session and membership endpoints
 
-These routes are proposed only; they are not implemented.
+This contract remains a draft. Routes with backend implementations are identified below; other entries remain proposals and still require API/mobile review.
 
 | Method and path | Auth | Purpose and contract |
 |---|---|---|
@@ -115,8 +115,30 @@ These routes are proposed only; they are not implemented.
 | `GET /v1/circles/{circleId}/periods/{periodNumber}/ledger` | Required | Return authorized period and shared ledger facts; exclude private payment-account data. |
 | `GET /v1/contributions/mine?status=open` | Required | Return only the caller's outstanding obligations across authorized circles. |
 | `POST /v1/circles/{circleId}/memberships` | Required | Accept a valid invitation and rules version; activate membership only after backend checks. |
+| `POST /v1/circles/{circleId}/memberships/{membershipId}/revoke` | Required | Active organizer revokes another active member with a required reason. Implemented; response and retry behavior below. |
+| `POST /v1/circles/{circleId}/memberships/me/leave` | Required | Active member leaves their own circle; reason is optional. Implemented; response and retry behavior below. |
+| `POST /v1/circles/{circleId}/memberships/{membershipId}/promote-organizer` | Required | Active organizer promotes an active member. Implemented; response below. |
 | `POST /v1/assistant/queries` | Required; later stage | Deferred until authorized reporting exists. Request and response below are proposals. |
 | `POST /v1/webhooks/bmoni` | Provider-authenticated; conditional | Deferred pending official provider docs and verified signature/replay requirements. Not a user-authenticated route. |
+
+### Implemented membership lifecycle responses and conflicts
+
+The three membership lifecycle routes return `200` with:
+
+```json
+{
+  "membershipId": "mbr_opaque",
+  "circleId": "cir_opaque",
+  "status": "active",
+  "role": "member",
+  "eventId": "evt_opaque",
+  "requestId": "req_opaque"
+}
+```
+
+For leave, `status` is `inactive`; for revocation, it is `revoked`; for promotion, `role` is `organizer`. Revocation requires a non-empty reason of at most 500 characters. Leave accepts an optional reason of at most 500 characters. Promotion has no request body.
+
+All operations derive the actor from the verified identity and current persisted membership. A non-organizer attempting revocation or promotion receives `403`. A missing/non-disclosable circle or target receives `404`. Attempts to leave/revoke an already inactive or revoked membership, revoke oneself, leave as the final active organizer, or promote an existing organizer receive `409 state_conflict`. A rejected retry creates no additional lifecycle event. A failed audit write returns `503` and rolls back the membership change. Promotion and later departure are separate transactions; each committed state must retain at least one active organizer.
 
 The request body carries the invitation and rules acceptance described above; membership is not active until the backend completes those checks.
 

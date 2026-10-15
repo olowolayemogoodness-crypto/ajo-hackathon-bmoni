@@ -31,7 +31,9 @@ def leave_circle(
 
     with session.begin():
         circle = _lock_circle(session, circle_id)
-        membership = _lock_membership(session, circle_id, actor.id)
+        membership = _lock_membership(session, circle_id, actor.id, active_only=False)
+        if membership.status != "active":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT)
         if membership.role == "organizer" and _active_organizer_count(session, circle_id) <= 1:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT)
 
@@ -72,8 +74,10 @@ def revoke_membership(
             .where(Membership.id == membership_id, Membership.circle_id == circle_id)
             .with_for_update()
         )
-        if target is None or target.status != "active":
+        if target is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if target.status != "active":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT)
         if target.user_id == actor.id:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT)
         if target.role == "organizer" and _active_organizer_count(session, circle_id) <= 1:
@@ -147,16 +151,20 @@ def _lock_circle(session: Session, circle_id: str) -> Circle:
     return circle
 
 
-def _lock_membership(session: Session, circle_id: str, user_id: str) -> Membership:
-    membership = session.scalar(
-        select(Membership)
-        .where(
-            Membership.circle_id == circle_id,
-            Membership.user_id == user_id,
-            Membership.status == "active",
-        )
-        .with_for_update()
+def _lock_membership(
+    session: Session,
+    circle_id: str,
+    user_id: str,
+    *,
+    active_only: bool = True,
+) -> Membership:
+    statement = select(Membership).where(
+        Membership.circle_id == circle_id,
+        Membership.user_id == user_id,
     )
+    if active_only:
+        statement = statement.where(Membership.status == "active")
+    membership = session.scalar(statement.with_for_update())
     if membership is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return membership

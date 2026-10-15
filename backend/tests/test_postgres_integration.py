@@ -8,6 +8,7 @@ import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -250,9 +251,12 @@ def test_postgres_migration_and_concurrent_first_session_requests(
                 ]
             )
 
+        organizer_barrier = Barrier(2)
+
         def leave_as_organizer(firebase_uid: str) -> str | int:
             with Session(engine) as session:
                 try:
+                    organizer_barrier.wait(timeout=15)
                     leave_circle(
                         session,
                         VerifiedIdentity(firebase_uid, firebase_uid),
@@ -264,13 +268,73 @@ def test_postgres_migration_and_concurrent_first_session_requests(
                 except HTTPException as exc:
                     return exc.status_code
 
-        from fastapi import HTTPException
-
         with ThreadPoolExecutor(max_workers=2) as executor:
             organizer_results = list(
                 executor.map(leave_as_organizer, ("firebase-organizer-a", "firebase-organizer-b"))
             )
         assert sorted(organizer_results, key=str) == sorted(("left", 409), key=str)
+
+        with Session(engine) as session, session.begin():
+            audit_user = User(id="user-audit-failure", firebase_uid="firebase-audit-failure")
+            session.add(audit_user)
+            session.flush()
+            session.add(
+                Membership(
+                    id="membership-audit-failure",
+                    circle_id="circle-organizers",
+                    user_id=audit_user.id,
+                    role="member",
+                    status="active",
+                )
+            )
+
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE FUNCTION fail_membership_event_insert() RETURNS trigger "
+                    "LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION "
+                    "'injected audit insert failure'; END; $$"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE TRIGGER tr_fail_membership_event_insert "
+                    "BEFORE INSERT ON membership_events FOR EACH ROW "
+                    "EXECUTE FUNCTION fail_membership_event_insert()"
+                )
+            )
+        try:
+            with Session(engine) as session:
+                with pytest.raises(SQLAlchemyError):
+                    leave_circle(
+                        session,
+                        VerifiedIdentity("firebase-audit-failure", "Audit Failure"),
+                        "circle-organizers",
+                        "request-audit-failure",
+                        None,
+                    )
+        finally:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "DROP TRIGGER IF EXISTS tr_fail_membership_event_insert "
+                        "ON membership_events"
+                    )
+                )
+                connection.execute(text("DROP FUNCTION IF EXISTS fail_membership_event_insert()"))
+
+        with Session(engine) as session:
+            membership = session.get(Membership, "membership-audit-failure")
+            assert membership is not None and membership.status == "active"
+            assert (
+                session.scalar(
+                    select(MembershipEvent.id).where(
+                        MembershipEvent.membership_id == "membership-audit-failure"
+                    )
+                )
+                is None
+            )
+
         with Session(engine) as session:
             active_organizers = session.scalars(
                 select(Membership).where(

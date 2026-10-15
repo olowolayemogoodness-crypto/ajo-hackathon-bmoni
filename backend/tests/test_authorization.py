@@ -217,9 +217,17 @@ def test_organizer_can_revoke_member_and_access_ends_immediately() -> None:
         "organizer-token",
         {"reason": "Repeatedly violated circle rules"},
     )
+    repeated_revoke = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{membership_id}/revoke",
+        "organizer-token",
+        {"reason": "Repeatedly violated circle rules"},
+    )
     access = request(app, "GET", f"/v1/circles/{circle_id}", "member-token")
 
     assert response.status_code == 200
+    assert repeated_revoke.status_code == 409
     assert response.json()["status"] == "revoked"
     assert response.json()["circleId"] == circle_id
     assert access.status_code == 404
@@ -233,6 +241,14 @@ def test_organizer_can_revoke_member_and_access_ends_immediately() -> None:
         assert event.reason == "Repeatedly violated circle rules"
         assert event.previous_status == "active"
         assert event.resulting_status == "revoked"
+        assert (
+            len(
+                session.scalars(
+                    select(MembershipEvent).where(MembershipEvent.membership_id == membership_id)
+                ).all()
+            )
+            == 1
+        )
     engine.dispose()
 
 
@@ -277,7 +293,19 @@ def test_member_can_leave_but_cannot_revoke_another_member() -> None:
         "member-token",
         {"reason": "Not allowed"},
     )
+    self_promotion = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/{member_membership_id}/promote-organizer",
+        "member-token",
+    )
     left = request(
+        app,
+        "POST",
+        f"/v1/circles/{circle_id}/memberships/me/leave",
+        "member-token",
+    )
+    repeated_leave = request(
         app,
         "POST",
         f"/v1/circles/{circle_id}/memberships/me/leave",
@@ -286,7 +314,9 @@ def test_member_can_leave_but_cannot_revoke_another_member() -> None:
     access = request(app, "GET", f"/v1/circles/{circle_id}", "member-token")
 
     assert unauthorized.status_code == 403
+    assert self_promotion.status_code == 403
     assert left.status_code == 200
+    assert repeated_leave.status_code == 409
     assert left.json()["membershipId"] == member_membership_id
     assert left.json()["status"] == "inactive"
     assert access.status_code == 404
@@ -295,6 +325,16 @@ def test_member_can_leave_but_cannot_revoke_another_member() -> None:
         assert event is not None
         assert event.action == "member_left"
         assert event.reason is None
+        assert (
+            len(
+                session.scalars(
+                    select(MembershipEvent).where(
+                        MembershipEvent.membership_id == member_membership_id
+                    )
+                ).all()
+            )
+            == 1
+        )
     engine.dispose()
 
 
