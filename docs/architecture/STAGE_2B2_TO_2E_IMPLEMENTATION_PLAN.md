@@ -47,15 +47,21 @@ Each milestone may be split into smaller commits. Prefer a migration/model commi
 
 ## 4. Stage 2B.2: Membership and invitation lifecycle
 
+The detailed accepted policy is recorded in [`STAGE_2B2_MEMBERSHIP_DECISIONS.md`](STAGE_2B2_MEMBERSHIP_DECISIONS.md). The criteria below summarize that decision; implementation must not replace it with guessed defaults.
+
 ### Approved criteria
 
 - Joining is invitation-only; public joining is not introduced.
 - A verified Firebase identity maps to the internal user. Never trust a request-supplied user ID, role, or organizer flag.
 - A valid invitation permits immediate admission after authentication, explicit acceptance of the current circle-rules version, and backend validation; a second organizer approval is not required.
+- Invitation TTL is 7 days from creation; invitations are single-use by default. Explicit multi-use invitations use a configured maximum. Expiry is exclusive at `expires_at`; consume use only on committed acceptance.
+- Every circle has a configured positive `max_members`; missing/null is invalid, never unlimited. Active members count toward capacity; pending invitations do not. PostgreSQL serializes acceptance and capacity changes.
 - Validate invitation-circle association, validity, expiry, revocation, usage, capacity, duplicate membership, and current rules version on the server.
+- Preserve one stable membership row per user/circle and append-only lifecycle events for distinct tenures. Rejoin requires a fresh invitation and rules acceptance; returning members default to `member`, never inherited `organizer`.
+- Active organizers may revoke other members with a non-empty bounded reason. Members may leave their own circle with an optional reason. Every transition and its audit event are atomic; the final active organizer is protected until an eligible successor is explicitly promoted or the circle is formally closed.
 - Membership and invitation-use changes commit atomically. Concurrent accepts cannot exceed the approved usage or capacity limit or create duplicate memberships.
 - Every protected request checks current persisted active membership. A revoked/inactive member loses access on the next request and receives the existing non-disclosing response.
-- Revocation does not delete financial history or audit evidence. Any effect on outstanding obligations must be explicitly governed by domain policy, not inferred by authorization code.
+- Revocation does not delete financial history or audit evidence, settle obligations, or erase pending financial state.
 - Never log raw invitation secrets or return them from list/inspection endpoints.
 
 ### Acceptance tests
@@ -65,18 +71,15 @@ Each milestone may be split into smaller commits. Prefer a migration/model commi
 - Race accepts for the final invitation use and final capacity slot; enforce the limit exactly once on PostgreSQL.
 - Deny invitation creation/revocation to callers without the approved authority; audit privileged actions.
 - Verify revocation immediately blocks circle reads and does not erase membership history or financial records.
-- Exercise self-removal, organizer removal, reactivation/rejoining, and final-organizer cases only after their policies are approved.
+- Exercise self-leave, organizer revocation, explicit rejoining after leave/revocation, role non-restoration, and concurrent final-organizer protection.
 
-### Blocking decisions before invitation implementation
+### Remaining release gates before invitation acceptance
 
-- Invitation expiry/TTL and usage-limit defaults are explicitly open in the approved decision register.
-- Capacity validation is required, but the capacity source/default and behavior when a circle has no configured limit must be defined.
-- The actor allowed to issue/revoke invitations and memberships must be confirmed by the API/product owners.
-- Self-removal, removal of another member, final-organizer protection, and whether a revoked/inactive member may rejoin are not settled.
-- Confirm whether rule acceptance is stored on the membership, as an immutable acceptance record, or both; preserve version, actor, and timestamp for audit.
-- Confirm API routes and error/status semantics against the proposed contract before exposing them.
+- The initial immutable rules document/version and authorized publishing workflow are not supplied. Do not use the sample `rules_v1` or invent rules content. The per-circle current version is mandatory; missing or mismatched configuration fails closed.
+- Whether rules updates affect existing members, which actions require reacceptance, and the associated API behavior remain open.
+- Confirm final route and error semantics with API/mobile owners before declaring the proposed API contract implemented.
 
-No invitation TTL, usage limit, capacity default, or final-organizer behavior may be selected implicitly in code. Stage 2B.2 implementation starts after these blocking decisions are recorded.
+Invitation TTL/usage, mandatory capacity, membership authority, self-leave, organizer continuity, stable membership identity, rejoin, and audit policy are decided in [`STAGE_2B2_MEMBERSHIP_DECISIONS.md`](STAGE_2B2_MEMBERSHIP_DECISIONS.md). Membership implementation may proceed with invitation acceptance disabled or failing closed until the rules-content gate is resolved.
 
 ## 5. Stage 2C: Circle lifecycle and schedules
 
@@ -168,10 +171,8 @@ Resolve these with the product/API owners before implementing the dependent feat
 
 | Decision | Blocks |
 |---|---|
-| Invitation TTL and usage-limit defaults | 2B.2 invitation issuance/acceptance |
-| Circle capacity source/default and no-limit semantics | 2B.2 acceptance and 2C readiness |
-| Invitation/member management authority; self-removal and final-organizer rules | 2B.2 revocation and authorization |
-| Rejoin/reactivation policy and membership-history representation | 2B.2 membership schema |
+| Initial immutable circle-rules document/version and authorized publishing workflow | 2B.2 invitation acceptance and circle activation |
+| Whether rules updates require existing members to reaccept, and which actions require it | Rules update workflow and protected actions |
 | Circle lifecycle transitions and readiness requirements | 2C activation/pause/abort |
 | Payout-order lock point and amendment procedure | 2C schedule/order; 2E.2 payout |
 | Revised-schedule and payout uniqueness keys | 2C/2D schema freeze |
