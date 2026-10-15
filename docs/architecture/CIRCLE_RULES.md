@@ -29,6 +29,8 @@ Use a trustworthy provider transaction-success timestamp to classify timeliness.
 
 A payment is not confirmed merely because a member reports making it, a client displays success, or a request times out. Provider or reconciliation evidence must be verified by the backend. A verified event that cannot be safely allocated remains unapplied and under review; it is not discarded, double-credited, automatically carried forward, or automatically refunded.
 
+A payment intent cannot exceed the unreserved outstanding amount of its one explicit obligation. An event that exceeds its intent is held wholly for review. If a verified event matches the intent but concurrent payments have reduced the obligation's remaining amount, only the locked remainder may be allocated; the excess remains unapplied for review. Active and release-pending reservations both count against available amount. Local expiry alone does not release a reservation while the provider may still collect. A verified success after final release is recorded once as unapplied funds for reconciliation.
+
 Historical financial records must not be silently deleted or overwritten. Corrections and reversals must be recorded as linked, auditable events.
 
 Members must not assume that leaving a circle cancels an existing financial obligation.
@@ -37,7 +39,9 @@ Members must not assume that leaving a circle cancels an existing financial obli
 
 Payouts are subject to the circle's approved payout order, applicable eligibility requirements, required approvals, and verified financial state. A missing required contribution, unresolved reconciliation, or other failed release condition prevents payout eligibility or keeps the payout held.
 
-A non-recipient organizer may approve an eligible payout. An organizer who is the intended recipient cannot approve it; an active non-recipient co-approver must be appointed and must accept the appointment. Approval is audited and is not evidence of settlement.
+A non-recipient organizer may approve an eligible payout. An organizer who is the intended recipient cannot approve it; the organizer must appoint one active non-recipient co-approver, who must accept the appointment. Appointment changes are locked while an affected payout is awaiting approval or processing. Approval is audited and is not evidence of settlement.
+
+The exact lifecycle point at which payout order becomes immutable and the authorized amendment procedure are not yet approved. Until they are, the backend must not permit payout-order changes through an ordinary update operation.
 
 Only verified settlement evidence may mark a real payout settled. A timeout or uncertain provider outcome is unresolved, not proof of success or failure, and must not trigger a blind duplicate transfer. Real-money transfers are outside the approved hackathon MVP. Any synthetic simulation must be explicitly authorized, clearly labelled, and isolated from real-provider behavior; provider failure never enables simulation.
 
@@ -81,7 +85,7 @@ Membership does not grant access to another member's private banking information
 
 The backend, not the client interface or AI assistant, determines authorization. AI-generated explanations do not override authoritative financial records or permissions.
 
-This draft is not a privacy notice and does not define data retention, legal basis, or all personal-data handling. No separate approved privacy notice or data-retention document was found in the repository. Identify and approve the applicable documents and link them here before publication; do not infer legal terms from this draft.
+This draft is not a privacy notice and does not define data retention, legal basis, or all personal-data handling. No separate approved privacy notice or data-retention document exists in the repository. Before publication, create and approve `docs/policies/PRIVACY_NOTICE.md` and `docs/policies/DATA_RETENTION_POLICY.md` through product and appropriate legal review, then link their approved versions here. Do not invent legal conclusions or retention periods in this draft.
 
 ## 8. Rules changes and acceptance
 
@@ -89,7 +93,7 @@ Each circle must reference an approved, immutable rules version. The version is 
 
 Accepting a version means accepting the exact content identified by that version. Earlier acceptance records must be preserved.
 
-New members must accept the current version. The project-level rules publisher and independent reviewer classify each proposed update as `MATERIAL` or `NON_MATERIAL`, with rationale and affected actions. Non-material changes do not force existing members to reaccept. Material changes require affected members to accept the new version before the recorded protected participation actions, such as invitation activity, initiating contribution periods, changing participation settings, or requesting a payout where acceptance is required.
+New members must accept the current version. A project-level rules publisher proposes each update's `MATERIAL` or `NON_MATERIAL` classification, rationale, and affected actions; a distinct authorized reviewer approves the exact content digest and classification. Non-material changes do not force existing members to reaccept. Material changes require affected members to accept the new version before the recorded protected participation actions, such as invitation activity, initiating contribution periods, changing participation settings, or requesting a payout where acceptance is required.
 
 Members who must reaccept retain access to sign in, review and accept the rules, view their own historical contributions and obligations, and access relevant dispute/reconciliation information. Default to read-only circle access while acceptance is pending. A rules update does not change existing financial obligations or transactions.
 
@@ -107,8 +111,8 @@ By accepting this rules version, the member acknowledges that they have been giv
 
 ## Approval required before publication
 
-This draft is not an authoritative rules document. Before publishing proposed version `ajo-circle-rules-1.0.0`, the Ajo project must resolve the independent dispute-reviewer appointment, identify and approve the privacy notice/data-retention/legal requirements, and verify that the actual fee disclosures, circle schedule, and payout order are presented separately where applicable.
+This draft is not an authoritative rules document. Before publishing proposed version `ajo-circle-rules-1.0.0`, the Ajo project must resolve the independent dispute-reviewer appointment, create and approve the privacy notice and data-retention policy through product/legal review, resolve the payout-order lock point and amendment policy, and verify that actual fee disclosures, circle schedules, and payout order are presented separately where applicable.
 
-The project must explicitly appoint a project-level `rules_publisher` and an independent `rules_reviewer`; neither role is inherited from circle organizer status. Record appointments, approval, version ID, content digest, materiality classification, rationale, affected actions, and UTC timestamps. Any content/classification change invalidates prior approval and requires a new review.
+The project owner, as project governance authority, must explicitly appoint a project-level `rules_publisher` and a distinct independent `rules_reviewer`; neither role is inherited from circle organizer status. Record each appointee's verified account ID, permission, appointing authority, appointment timestamp, and scope/expiry. Record publication approval against the exact version ID and content digest, with publisher, reviewer, materiality classification, rationale, affected actions, decision, and UTC timestamps. Any content/classification change invalidates prior approval and requires review again.
 
-After explicit approval, commit an immutable copy under `docs/architecture/circle-rules/` and configure circles explicitly. No immutable copy, version ID, publisher, or reviewer is currently approved. Do not seed or use the proposed version as an approved runtime default.
+After explicit two-person approval, commit an immutable copy under `docs/architecture/circle-rules/` and configure circles explicitly. The proposed privacy/retention paths are not present yet. No immutable rules copy, authoritative version ID, publisher, or reviewer is currently approved/appointed. Do not seed or use the proposed version as an approved runtime default.

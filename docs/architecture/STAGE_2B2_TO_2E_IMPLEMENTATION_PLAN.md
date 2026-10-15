@@ -75,7 +75,7 @@ The detailed accepted policy is recorded in [`STAGE_2B2_MEMBERSHIP_DECISIONS.md`
 
 ### Remaining release gates before invitation acceptance
 
-- The revised proposed draft is [`CIRCLE_RULES.md`](CIRCLE_RULES.md), with proposed ID `ajo-circle-rules-1.0.0`; neither text nor ID is approved. Explicitly appoint a project-level publisher and independent reviewer, identify approved privacy/data-retention documents, and record governance approval. Do not create an immutable published copy, seed a runtime value, or enable acceptance before approval is recorded.
+- The revised proposed draft is [`CIRCLE_RULES.md`](CIRCLE_RULES.md), with proposed ID `ajo-circle-rules-1.0.0`; neither text nor ID is approved. Explicitly appoint a project-level publisher and a distinct reviewer, approve the exact content digest, create and review privacy/data-retention policies, resolve the independent dispute-reviewer appointment and payout-order lock policy, and record governance approval. Do not create an immutable published copy, seed a runtime value, or enable acceptance before approval is recorded.
 - Rules updates are classified by the authorized publisher as material or non-material. New members always accept the current version; material changes require reacceptance for recorded affected actions; non-material changes do not. Reacceptance pending preserves read-only access to rules, own financial history, and relevant disputes/reconciliation; existing financial state is not changed.
 - Confirm final route and error semantics with API/mobile owners before declaring the proposed API contract implemented.
 
