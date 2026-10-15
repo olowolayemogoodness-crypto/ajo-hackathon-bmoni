@@ -43,8 +43,13 @@
 - The authoritative current rules version is mandatory and stored per circle. It is backend-controlled; clients cannot create or select an authoritative version.
 - Do not treat the API-contract example `rules_v1` as approved or use it as a default. Missing or invalid current rules configuration fails closed for invitation acceptance and circle activation.
 - Acceptance submits the exact current version and is checked in the same transaction as invitation consumption and membership activation/reactivation. Record immutable evidence associating circle, membership, user, version, UTC time, and event.
-- Every version must reference an actual immutable rules document or canonical content revision retrievable by the backend. A rules update is audited with old/new version, actor, time, and reason; prior acceptance evidence is preserved.
-- **Still unresolved:** the initial rules document/version and authorized publishing workflow have not been supplied. Also unresolved is whether a rules update affects only future joiners or requires existing members to reaccept, and which actions require reacceptance. Until decided, do not publish/update rules or enable invitation acceptance against invented content.
+- Every version must reference an actual immutable rules document or canonical content revision retrievable by the backend. Published versions are immutable; preserve prior acceptance evidence. A publication audit records version, content digest, publisher, approving authority, timestamp, and approval record.
+- Recommended document layout: editable source at `docs/architecture/CIRCLE_RULES.md` and immutable published artifacts under `docs/architecture/circle-rules/`. These paths are recommendations only; neither file nor an approved version exists yet.
+- A rules update never implies consent. The authorized publisher classifies and records each update as `NON_MATERIAL` or `MATERIAL` with a reason and affected actions. Non-material changes do not require existing members to reaccept; new members always accept the current version.
+- Material changes require affected existing members to reaccept before protected participation actions. The policy examples are creating/accepting invitations, initiating contribution periods, changing participation settings, and requesting a payout where acceptance is a prerequisite. The publisher must explicitly record the affected actions for each material version.
+- While reacceptance is pending, members retain sign-in, rules review/reacceptance, access to their own historical contributions and obligations, and relevant dispute/reconciliation information. Default to read-only circle access rather than total lockout. A rules update never erases, settles, cancels, or modifies existing financial state.
+- Check current version and acceptance state server-side and transactionally for each protected action. If the current version changes during acceptance, reject or safely retry; never record stale-version acceptance.
+- **Still unresolved:** the initial rules text, exact first version identifier, and authorized approving/publishing authority have not been supplied. Do not seed `rules_v1`, invent rules text, or enable invitation acceptance until those are approved. Material/non-material classification must not be client-controlled or inferred automatically.
 
 ## Required Stage 2B.2 PostgreSQL tests
 
@@ -55,3 +60,4 @@
 - Organizer revocation with/without reason, member self-leave, unauthorized cross-member changes, and final-organizer protection under concurrency.
 - Membership/audit atomicity, immediate access loss after revocation/leave, preservation of prior tenure events and financial records.
 - Missing rules configuration and exact-version mismatch fail closed; acceptance event records the version actually accepted.
+- Material and non-material updates, affected-action enforcement, read-only access while reacceptance is pending, preservation of historic acceptance and financial records, and concurrent version changes.

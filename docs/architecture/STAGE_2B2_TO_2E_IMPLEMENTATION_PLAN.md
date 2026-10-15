@@ -75,8 +75,8 @@ The detailed accepted policy is recorded in [`STAGE_2B2_MEMBERSHIP_DECISIONS.md`
 
 ### Remaining release gates before invitation acceptance
 
-- The initial immutable rules document/version and authorized publishing workflow are not supplied. Do not use the sample `rules_v1` or invent rules content. The per-circle current version is mandatory; missing or mismatched configuration fails closed.
-- Whether rules updates affect existing members, which actions require reacceptance, and the associated API behavior remain open.
+- The initial immutable rules document/text, exact version identifier, and authorized approving/publishing role are not supplied. Do not use the sample `rules_v1` or invent rules content. The per-circle current version is mandatory; missing or mismatched configuration fails closed.
+- Rules updates are classified by the authorized publisher as material or non-material. New members always accept the current version; material changes require reacceptance for recorded affected actions; non-material changes do not. Until a publisher is authorized and a document exists, do not expose version publication or acceptance.
 - Confirm final route and error semantics with API/mobile owners before declaring the proposed API contract implemented.
 
 Invitation TTL/usage, mandatory capacity, membership authority, self-leave, organizer continuity, stable membership identity, rejoin, and audit policy are decided in [`STAGE_2B2_MEMBERSHIP_DECISIONS.md`](STAGE_2B2_MEMBERSHIP_DECISIONS.md). Membership implementation may proceed with invitation acceptance disabled or failing closed until the rules-content gate is resolved.
