@@ -46,16 +46,23 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 14),
               Reveal(index: 2, child: _NextMove(store: s)),
               const SizedBox(height: 14),
-              Reveal(index: 3, child: _Stats(store: s)),
+              Reveal(index: 3, child: _PrivateReminder(store: s)),
+              const SizedBox(height: 14),
+              Reveal(index: 4, child: _Stats(store: s)),
+              const SizedBox(height: 22),
+              Reveal(index: 5, child: _ContributionLedger(store: s)),
               const SizedBox(height: 22),
               Reveal(
-                index: 4,
+                index: 6,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'The ajo wheel',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    const Text(
+                      'The ajo wheel 🎡',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     TextButton(
                       onPressed: () => onGoTo(1),
@@ -65,29 +72,27 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Reveal(
-                index: 5,
+                index: 7,
                 child: _Wheel(store: s, onTap: () => onGoTo(1)),
               ),
               const SizedBox(height: 22),
               Reveal(
-                index: 6,
-                child: Text(
+                index: 8,
+                child: const Text(
                   'Circle activity',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
               ),
               const SizedBox(height: 4),
-              Reveal(
-                index: 6,
+              const Reveal(
+                index: 8,
                 child: Text(
                   'Every action is written to the ledger.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 10),
-              Reveal(index: 7, child: _Activity(store: s)),
+              Reveal(index: 9, child: _Activity(store: s)),
             ],
           ),
         );
@@ -113,10 +118,13 @@ class _Header extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$greeting, ${store.meName}',
+                '$greeting, ${store.meName} 👋',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 4),
               const DemoBadge(),
@@ -219,24 +227,29 @@ class _HeroCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   s.circleName,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               StatusChip(
                 label: payoutChipLabel(payout.status),
                 color: held ? AppColors.warningDark : AppColors.primaryDark,
                 background: held ? AppColors.warningLight : Colors.white,
-                icon: payoutChipIcon(payout.status),
+                icon: held
+                    ? Icons.pause_circle_filled_rounded
+                    : Icons.bolt_rounded,
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             'Round $cur of ${s.totalRounds}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.82),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 13,
             ),
           ),
           const SizedBox(height: 18),
@@ -248,6 +261,13 @@ class _HeroCard extends StatelessWidget {
             'of ${Money.fmt(s.pot)} collected this round',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+          Text(
+            'of ${Money.fmt(s.pot)} collected this round',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: 14),
@@ -276,8 +296,9 @@ class _HeroCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '${s.paidMembers(cur)} of ${s.members.length} fully paid',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
                 ),
               ),
               const Spacer(),
@@ -285,8 +306,9 @@ class _HeroCard extends StatelessWidget {
                 payout.status == PayoutStatus.settled
                     ? 'Settled'
                     : 'Due ${Dates.short(due)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -311,9 +333,11 @@ class _HeroCard extends StatelessWidget {
                     recipient.isMe
                         ? 'This round\'s pot is yours!'
                         : 'This round\'s pot goes to ${recipient.name}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleSmall?.copyWith(color: Colors.white),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
@@ -384,19 +408,29 @@ class _NextMove extends StatelessWidget {
                       early
                           ? 'Pay early for Round ${o.round}'
                           : 'Your contribution is due',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15.5,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Due ${Dates.short(o.dueAt)} · ${Dates.relative(o.dueAt)}',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Text(Money.fmt(o.remainingKobo), style: context.type.moneyTitle),
+              Text(
+                Money.fmt(o.remainingKobo),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -409,16 +443,221 @@ class _NextMove extends StatelessWidget {
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Text(
-                'Review & pay',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: Colors.white),
+              child: const Text(
+                'Pay in sandbox',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15.5,
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PrivateReminder extends StatelessWidget {
+  const _PrivateReminder({required this.store});
+
+  final AjoStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final reminder = store.myReminder;
+    if (!store.remindersOn || reminder == null) {
+      return const SizedBox.shrink();
+    }
+    return SectionCard(
+      color: AppColors.skyLight,
+      borderColor: const Color(0xFFBFDDF3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.notifications_active_rounded, color: AppColors.sky),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Private reminder',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                Text(reminder.message, style: const TextStyle(height: 1.4)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Only you can see this reminder.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContributionLedger extends StatefulWidget {
+  const _ContributionLedger({required this.store});
+
+  final AjoStore store;
+
+  @override
+  State<_ContributionLedger> createState() => _ContributionLedgerState();
+}
+
+class _ContributionLedgerState extends State<_ContributionLedger> {
+  late int _round;
+
+  @override
+  void initState() {
+    super.initState();
+    _round = widget.store.currentRound;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final rows = store.obligationsFor(_round);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Contribution ledger',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Shared statuses only — no private account details.',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: _round,
+              borderRadius: BorderRadius.circular(14),
+              underline: const SizedBox.shrink(),
+              items: [
+                for (var round = 1; round <= store.totalRounds; round++)
+                  DropdownMenuItem(value: round, child: Text('Round $round')),
+              ],
+              onChanged: (round) {
+                if (round != null) setState(() => _round = round);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SectionCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                _LedgerRow(store: store, obligation: rows[i]),
+                if (i != rows.length - 1)
+                  const Divider(height: 1, color: AppColors.border),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final status in ObligationStatus.values)
+              _LedgerStatusChip(status: status),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({required this.store, required this.obligation});
+
+  final AjoStore store;
+  final Obligation obligation;
+
+  @override
+  Widget build(BuildContext context) {
+    final member = store.member(obligation.memberId);
+    final status = store.statusOf(obligation);
+    final timestamp = obligation.paidAt == null
+        ? 'No confirmed payment'
+        : 'Confirmed ${Dates.full(obligation.paidAt!)}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  member.isMe ? '${member.name} (you)' : member.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _LedgerStatusChip(status: status),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Expected ${Money.fmt(obligation.amountKobo)}  ·  '
+            'Received ${Money.fmt(obligation.paidKobo)}  ·  '
+            'Outstanding ${Money.fmt(obligation.remainingKobo)}',
+            style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            timestamp,
+            style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LedgerStatusChip extends StatelessWidget {
+  const _LedgerStatusChip({required this.status});
+
+  final ObligationStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, background) = switch (status) {
+      ObligationStatus.paid => (AppColors.primary, AppColors.mintLight),
+      ObligationStatus.overdue => (AppColors.warning, AppColors.warningLight),
+      ObligationStatus.partiallyPaid => (
+        const Color(0xFF8A6100),
+        AppColors.goldLight,
+      ),
+      ObligationStatus.underReview => (AppColors.purple, AppColors.purpleLight),
+      ObligationStatus.awaitingPayment => (AppColors.sky, AppColors.skyLight),
+      ObligationStatus.upcoming => (AppColors.muted, const Color(0xFFF0F1F4)),
+    };
+    return StatusChip(
+      label: status.label,
+      color: color,
+      background: background,
     );
   }
 }
@@ -441,23 +680,19 @@ class _Stats extends StatelessWidget {
       children: [
         Expanded(
           child: _Stat(
-            icon: Icons.local_fire_department_rounded,
+            emoji: '🔥',
             value: '${h.streak}',
             label: 'On-time streak',
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _Stat(
-            icon: Icons.emoji_events_rounded,
-            value: turn,
-            label: 'Your turn',
-          ),
+          child: _Stat(emoji: '🏆', value: turn, label: 'Your turn'),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _Stat(
-            icon: Icons.groups_rounded,
+            emoji: '👥',
             value: '${store.members.length}',
             label: 'Members',
           ),
@@ -482,14 +717,15 @@ class _Stat extends StatelessWidget {
         children: [
           Icon(icon, size: 22, color: AppColors.primaryDark),
           const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 2),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: AppColors.muted),
+            style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
           ),
         ],
       ),
@@ -538,7 +774,9 @@ class _Wheel extends StatelessWidget {
                 children: [
                   Text(
                     'R${p.round}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
                       color: current ? Colors.white70 : AppColors.muted,
                     ),
                   ),
@@ -561,10 +799,10 @@ class _Wheel extends StatelessWidget {
                           ),
                           child: Text(
                             m.initial,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: current ? AppColors.primary : m.color,
-                                ),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: current ? AppColors.primary : m.color,
+                            ),
                           ),
                         ),
                   const SizedBox(height: 4),
@@ -601,6 +839,7 @@ IconData eventIcon(String type) {
     case 'payout_settled':
       return Icons.savings_rounded;
     case 'reminder_sent':
+    case 'reminder_due':
       return Icons.notifications_active_rounded;
     case 'round_started':
       return Icons.flag_rounded;
@@ -656,7 +895,8 @@ class _Activity extends StatelessWidget {
                   Expanded(
                     child: Text(
                       items[i].text,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: const TextStyle(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -664,9 +904,10 @@ class _Activity extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     Dates.timeAgo(items[i].at),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
                   ),
                 ],
               ),

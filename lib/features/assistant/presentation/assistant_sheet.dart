@@ -36,11 +36,11 @@ class _AssistantSheetState extends State<AssistantSheet> {
   bool _typing = false;
 
   static const _suggestions = [
-    'When is my turn?',
-    'Why is my payout held?',
-    'Who hasn\'t paid?',
-    'How much is in the pot?',
-    'Show my history',
+    'Who receives next payout?',
+    'How much have I contributed?',
+    'Am I behind?',
+    'When is my next payment due?',
+    'This week\'s circle summary',
   ];
 
   @override
@@ -141,12 +141,17 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       children: [
                         Text(
                           'Ajo AI',
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         Text(
                           'Reads your ledger · can\'t move money',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.muted),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
                         ),
                       ],
                     ),
@@ -186,7 +191,9 @@ class _AssistantSheetState extends State<AssistantSheet> {
                   onPressed: () => _send(_suggestions[i]),
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: AppColors.border),
-                  labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
                     color: AppColors.primaryDark,
                   ),
                 ),
@@ -203,9 +210,15 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       onSubmitted: _send,
                       decoration: const InputDecoration(
                         hintText: 'Ask about your circle…',
-                        contentPadding: EdgeInsets.symmetric(
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          borderSide: const BorderSide(color: AppColors.border),
                         ),
                       ),
                     ),

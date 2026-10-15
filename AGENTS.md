@@ -2,16 +2,10 @@
 
 This file is the project's committed home for project-intrinsic agent knowledge: build, test, release, architecture, and sharp-edge notes that should travel with the code.
 
-- Add durable project-specific notes here as they are discovered through real work.
-
-## UI conventions
-
-- Use semantic roles from `lib/core/theme/app_theme.dart`; use `Theme.of(context).textTheme` for copy and `context.type` for money/code so amounts retain tabular figures.
-- Keep status treatments accessible with a rounded Material icon plus a text label; `lib/core/widgets/status_chip.dart` enforces this for compact statuses.
-
-## Validation
-
-- Run `flutter analyze --no-pub` and `flutter test --no-pub`. The widget suite includes a 390×844 layout sweep of the primary savings flows.
+- The section 13 synthetic scenario is defined in `lib/data/mock/seed_data.dart`; keep demo identities, contribution history, and payout order deterministic there rather than duplicating fixtures in screens.
+- Ledger status, reliability, and reminder rules live in `lib/data/logic/`. Keep them side-effect free and cover rule changes with focused tests under `test/`.
+- Money values are integer kobo throughout. Payment providers must implement `lib/data/payments/payments_adapter.dart`, preserve idempotency, and label simulations clearly.
+- Validate changes with `flutter analyze` and `flutter test`.
 
 ## Maintaining this file
 

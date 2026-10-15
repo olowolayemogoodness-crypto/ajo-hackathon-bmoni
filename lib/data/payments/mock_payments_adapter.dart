@@ -16,12 +16,12 @@ class MockPaymentsAdapter implements PaymentsAdapter {
     await Future<void>.delayed(const Duration(milliseconds: 900));
     // Same idempotency key -> same intent. Retrying never double-charges.
     return _byKey.putIfAbsent(idempotencyKey, () {
-      final ms = DateTime.now().millisecondsSinceEpoch;
+      final sequence = _byKey.length + 1;
       return PaymentIntent(
-        id: 'pi_$ms',
+        id: 'pi_demo_$sequence',
         idempotencyKey: idempotencyKey,
         amountKobo: amountKobo,
-        reference: 'AJO-${ms % 1000000}',
+        reference: 'AJO-SANDBOX-${sequence.toString().padLeft(4, '0')}',
       );
     });
   }
