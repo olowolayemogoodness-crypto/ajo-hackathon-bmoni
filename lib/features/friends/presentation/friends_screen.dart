@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/member_avatar.dart';
@@ -62,7 +63,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       backgroundColor: Colors.white,
                       selectedBackgroundColor: AppColors.mintLight,
                       selectedForegroundColor: AppColors.primaryDark,
-                      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                      textStyle: Theme.of(context).textTheme.labelLarge,
                     ),
                   ),
                 ),
@@ -97,7 +98,11 @@ class _ThisWeek extends StatelessWidget {
             borderColor: const Color(0xFFBFE8D1),
             child: Row(
               children: [
-                const Text('📅', style: TextStyle(fontSize: 24)),
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 24,
+                  color: AppColors.primaryDark,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -135,9 +140,11 @@ class _ThisWeek extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'Tap a member to see their payment history. Ajo shows facts from the ledger — not scores.',
-          style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.4),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
         ),
       ],
     );
@@ -241,8 +248,8 @@ class _MemberRow extends StatelessWidget {
             children: [
               chip,
               if (!o.isPaid && !member.isMe)
-                GestureDetector(
-                  onTap: () {
+                TextButton.icon(
+                  onPressed: () {
                     store.nudge(member.id);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -341,7 +348,7 @@ class _PastRoundCard extends StatelessWidget {
           leading: MemberAvatar(member: recipient, size: 40),
           title: Text(
             'Round $round · ${recipient.isMe ? 'You' : recipient.name} received ${Money.fmt(p.amountKobo)}',
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+            style: const TextStyle(font⁴lWeight: FontWeight.w800, fontSize: 14.5),
           ),
           subtitle: Text(
             '${p.settledAt == null ? '' : 'Settled ${Dates.short(p.settledAt!)} · '}$onTime/${obs.length} on time',
@@ -361,6 +368,7 @@ class _PastRoundCard extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Text(
                       o.isPaid
                           ? (o.paidLate ? 'Paid late' : 'On time')
@@ -418,6 +426,24 @@ String markLabel(Mark m) {
       return 'Due';
     case Mark.upcoming:
       return 'Upcoming';
+  }
+}
+
+IconData markIcon(Mark mark) {
+  switch (mark) {
+    case Mark.onTime:
+      return Icons.check_rounded;
+    case Mark.late:
+      return Icons.schedule_rounded;
+    case Mark.partial:
+      return Icons.timelapse_rounded;
+    case Mark.overdue:
+    case Mark.missed:
+      return Icons.priority_high_rounded;
+    case Mark.pending:
+      return Icons.hourglass_top_rounded;
+    case Mark.upcoming:
+      return Icons.more_horiz_rounded;
   }
 }
 
@@ -619,7 +645,13 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
   );
 }
 
-Widget _count(String n, String label, Color fg, Color bg) {
+Widget _count(
+  BuildContext context,
+  String n,
+  String label,
+  Color fg,
+  Color bg,
+) {
   return Expanded(
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),

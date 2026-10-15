@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/bounce_tap.dart';
@@ -171,7 +172,22 @@ String payoutChipLabel(PayoutStatus st) {
     case PayoutStatus.processing:
       return 'Sending…';
     case PayoutStatus.settled:
-      return 'Paid out ✅';
+      return 'Paid out';
+  }
+}
+
+IconData payoutChipIcon(PayoutStatus status) {
+  switch (status) {
+    case PayoutStatus.scheduled:
+      return Icons.savings_rounded;
+    case PayoutStatus.held:
+      return Icons.pause_circle_rounded;
+    case PayoutStatus.awaitingApproval:
+      return Icons.approval_rounded;
+    case PayoutStatus.processing:
+      return Icons.sync_rounded;
+    case PayoutStatus.settled:
+      return Icons.check_circle_rounded;
   }
 }
 
@@ -220,7 +236,7 @@ class _HeroCard extends StatelessWidget {
               ),
               StatusChip(
                 label: payoutChipLabel(payout.status),
-                color: held ? AppColors.warning : AppColors.primaryDark,
+                color: held ? AppColors.warningDark : AppColors.primaryDark,
                 background: held ? AppColors.warningLight : Colors.white,
                 icon: held
                     ? Icons.pause_circle_filled_rounded
@@ -239,11 +255,12 @@ class _HeroCard extends StatelessWidget {
           const SizedBox(height: 18),
           CountUpMoney(
             kobo: s.collected(cur),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 40,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -1,
+            style: context.type.moneyDisplay.copyWith(color: Colors.white),
+          ),
+          Text(
+            'of ${Money.fmt(s.pot)} collected this round',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           Text(
@@ -305,7 +322,11 @@ class _HeroCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Text('🎉', style: TextStyle(fontSize: 18)),
+                const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -337,17 +358,21 @@ class _NextMove extends StatelessWidget {
   Widget build(BuildContext context) {
     final o = store.myNextObligation;
     if (o == null) {
-      return const SectionCard(
+      return SectionCard(
         color: AppColors.mintLight,
-        borderColor: Color(0xFFBFE8D1),
+        borderColor: const Color(0xFFBFE8D1),
         child: Row(
           children: [
-            Text('🎉', style: TextStyle(fontSize: 28)),
-            SizedBox(width: 12),
+            const Icon(
+              Icons.check_circle_rounded,
+              size: 28,
+              color: AppColors.primaryDark,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'You\'re all paid up. Nothing due right now!',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
           ],
@@ -369,7 +394,10 @@ class _NextMove extends StatelessWidget {
                   color: AppColors.purpleLight,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Text('💸', style: TextStyle(fontSize: 22)),
+                child: const Icon(
+                  Icons.payments_rounded,
+                  color: AppColors.purple,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -675,9 +703,9 @@ class _Stats extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.emoji, required this.value, required this.label});
+  const _Stat({required this.icon, required this.value, required this.label});
 
-  final String emoji;
+  final IconData icon;
   final String value;
   final String label;
 
@@ -687,7 +715,7 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
+          Icon(icon, size: 22, color: AppColors.primaryDark),
           const SizedBox(height: 4),
           Text(
             value,
@@ -782,9 +810,7 @@ class _Wheel extends StatelessWidget {
                     m.isMe ? 'You' : m.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: current ? Colors.white : AppColors.ink,
                     ),
                   ),
@@ -805,7 +831,7 @@ IconData eventIcon(String type) {
     case 'payment_submitted':
       return Icons.hourglass_top_rounded;
     case 'payout_held':
-      return Icons.pause_circle_filled_rounded;
+      return Icons.pause_circle_rounded;
     case 'payout_ready':
       return Icons.celebration_rounded;
     case 'payout_approved':

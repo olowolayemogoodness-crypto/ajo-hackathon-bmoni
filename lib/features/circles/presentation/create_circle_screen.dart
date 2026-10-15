@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/confetti.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -33,7 +34,9 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
   }
 
   void _create() {
-    final name = _name.text.trim().isEmpty ? 'My Ajo Circle' : _name.text.trim();
+    final name = _name.text.trim().isEmpty
+        ? 'My Ajo Circle'
+        : _name.text.trim();
     final c = AjoStore.instance.createCircle(
       name: name,
       amountKobo: Money.toKobo(_amountNaira),
@@ -47,10 +50,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: Colors.transparent,
-        title: Text(_created == null ? 'Create a circle' : 'Circle created!',
-            style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(_created == null ? 'Create a circle' : 'Circle created!'),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => context.pop(),
@@ -58,9 +58,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
       ),
       body: Stack(
         children: [
-          SafeArea(
-            child: _created == null ? _form() : _success(_created!),
-          ),
+          SafeArea(child: _created == null ? _form() : _success(_created!)),
           if (_created != null) const Positioned.fill(child: ConfettiBurst()),
         ],
       ),
@@ -73,25 +71,23 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        const Text('Name your circle',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        Text(
+          'Name your circle',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _name,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'e.g. Hostel Block C Ajo',
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
           ),
         ),
         const SizedBox(height: 22),
-        const Text('Each person pays',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        Text(
+          'Each person pays',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -103,9 +99,10 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
                 selected: _amountNaira == a,
                 onSelected: (_) => setState(() => _amountNaira = a),
                 selectedColor: AppColors.mintLight,
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: _amountNaira == a ? AppColors.primaryDark : AppColors.ink,
+                labelStyle: context.type.moneyBody.copyWith(
+                  color: _amountNaira == a
+                      ? AppColors.primaryDark
+                      : AppColors.ink,
                 ),
               ),
           ],
@@ -114,11 +111,16 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('How many people?',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            Text('$rounds',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.primary)),
+            Text(
+              'How many people?',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            Text(
+              '$rounds',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: AppColors.primaryDark),
+            ),
           ],
         ),
         Slider(
@@ -130,8 +132,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
           onChanged: (v) => setState(() => _size = v),
         ),
         const SizedBox(height: 10),
-        const Text('How often?',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        Text('How often?', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -142,8 +143,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
                 selected: _freq == f,
                 onSelected: (_) => setState(() => _freq = f),
                 selectedColor: AppColors.mintLight,
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.w700,
+                labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: _freq == f ? AppColors.primaryDark : AppColors.ink,
                 ),
               ),
@@ -156,17 +156,34 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Preview ✨', style: TextStyle(fontWeight: FontWeight.w800)),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.visibility_rounded,
+                    size: 19,
+                    color: AppColors.purple,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Circle preview',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               Text(
                 'Each round, the pot is ${Money.fmt(pot)}. Over $rounds rounds, everyone receives it once — about ${(rounds * _freq.days / 7).round()} weeks in total.',
-                style: const TextStyle(height: 1.4),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        PrimaryButton(label: 'Create circle', icon: Icons.rocket_launch_rounded, onPressed: _create),
+        PrimaryButton(
+          label: 'Create circle',
+          icon: Icons.rocket_launch_rounded,
+          onPressed: _create,
+        ),
       ],
     );
   }
@@ -177,36 +194,58 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
       child: Column(
         children: [
           const Spacer(),
-          const Text('🌱', style: TextStyle(fontSize: 64)),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.mintLight,
+            ),
+            child: const Icon(
+              Icons.group_add_rounded,
+              size: 40,
+              color: AppColors.primaryDark,
+            ),
+          ),
           const SizedBox(height: 12),
-          Text(c.name,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          Text(
+            c.name,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 6),
           Text(
-              '${Money.fmt(c.amountKobo)} ${c.frequency.label.toLowerCase()} · ${c.size} people',
-              style: const TextStyle(color: AppColors.muted)),
+            '${Money.fmt(c.amountKobo)} ${c.frequency.label.toLowerCase()} · ${c.size} people',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ),
           const SizedBox(height: 24),
           SectionCard(
             child: Column(
               children: [
-                const Text('Invite code',
-                    style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600)),
+                Text(
+                  'Invite code',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: AppColors.muted),
+                ),
                 const SizedBox(height: 6),
-                Text(c.code,
-                    style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: AppColors.primaryDark)),
+                Text(
+                  c.code,
+                  style: context.type.code.copyWith(
+                    color: AppColors.primaryDark,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 TextButton.icon(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: c.code));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          behavior: SnackBarBehavior.floating,
-                          content: Text('Invite code copied')),
+                        behavior: SnackBarBehavior.floating,
+                        content: Text('Invite code copied'),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.copy_rounded, size: 18),
@@ -216,10 +255,12 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Circles are invite-only. Share this code with people you trust. (Prototype: nobody can actually join this demo circle.)',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, fontSize: 12.5, height: 1.4),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
           ),
           const Spacer(),
           PrimaryButton(label: 'Done', onPressed: () => context.pop()),

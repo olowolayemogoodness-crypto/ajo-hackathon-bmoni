@@ -49,8 +49,8 @@ class _AssistantSheetState extends State<AssistantSheet> {
     _msgs.add(
       _Msg(
         _pidgin
-            ? 'How far ${_s.meName}! 👋 Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
-            : 'Hi ${_s.meName}! 👋 I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
+            ? 'How far ${_s.meName}! Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
+            : 'Hi ${_s.meName}! I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
         false,
       ),
     );
@@ -135,7 +135,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -157,7 +157,8 @@ class _AssistantSheetState extends State<AssistantSheet> {
                     ),
                   ),
                   FilterChip(
-                    label: const Text('Pidgin 🇳🇬'),
+                    avatar: const Icon(Icons.translate_rounded, size: 16),
+                    label: const Text('Pidgin'),
                     selected: _pidgin,
                     onSelected: (v) => setState(() => _pidgin = v),
                     selectedColor: AppColors.mintLight,
@@ -207,7 +208,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       controller: _input,
                       textInputAction: TextInputAction.send,
                       onSubmitted: _send,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Ask about your circle…',
                         filled: true,
                         fillColor: Colors.white,
@@ -269,9 +270,7 @@ class _Bubble extends StatelessWidget {
         ),
         child: Text(
           msg.text,
-          style: TextStyle(
-            height: 1.4,
-            fontSize: 14.5,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: msg.mine ? Colors.white : AppColors.ink,
           ),
         ),

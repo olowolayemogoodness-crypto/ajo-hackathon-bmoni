@@ -18,32 +18,49 @@ class DemoControls extends StatelessWidget {
       listenable: s,
       builder: (context, _) {
         final payout = s.currentPayout!;
-        final unpaid = s.unpaid(s.currentRound).where((o) => !o.memberId.startsWith('me')).toList();
+        final unpaid = s
+            .unpaid(s.currentRound)
+            .where((o) => !o.memberId.startsWith('me'))
+            .toList();
         final actions = <Widget>[];
 
         for (final o in unpaid) {
-          actions.add(_btn(
-            'Simulate ${s.member(o.memberId).name} paying ${Money.fmt(o.remainingKobo)}',
-            Icons.payments_rounded,
-            () => s.simulateMemberPays(o.memberId),
-          ));
+          actions.add(
+            _btn(
+              'Simulate ${s.member(o.memberId).name} paying ${Money.fmt(o.remainingKobo)}',
+              Icons.payments_rounded,
+              () => s.simulateMemberPays(o.memberId),
+            ),
+          );
         }
         if (payout.status == PayoutStatus.awaitingApproval) {
-          actions.add(_btn('Organizer approves payout', Icons.verified_rounded, s.approvePayout));
+          actions.add(
+            _btn(
+              'Organizer approves payout',
+              Icons.verified_rounded,
+              s.approvePayout,
+            ),
+          );
         }
         if (payout.status == PayoutStatus.processing) {
-          actions.add(const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Text('Sending payout… (mock, takes ~3s)',
-                style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600)),
-          ));
+          actions.add(
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('Sending payout… (mock, takes ~3s)'),
+            ),
+          );
         }
         if (s.canAdvance) {
-          actions.add(_btn('Start Round ${s.currentRound + 1}', Icons.skip_next_rounded, s.advanceRound));
+          actions.add(
+            _btn(
+              'Start Round ${s.currentRound + 1}',
+              Icons.skip_next_rounded,
+              s.advanceRound,
+            ),
+          );
         }
         if (actions.isEmpty) {
-          actions.add(const Text('Nothing to simulate right now.',
-              style: TextStyle(color: AppColors.muted)));
+          actions.add(const Text('Nothing to simulate right now.'));
         }
 
         return SectionCard(
@@ -54,9 +71,11 @@ class DemoControls extends StatelessWidget {
             children: [
               const DemoBadge(label: 'DEMO CONTROLS'),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Simulate what other people do, so you can watch the whole story unfold.',
-                style: TextStyle(color: AppColors.muted, fontSize: 13),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
               ),
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: actions),
@@ -67,7 +86,9 @@ class DemoControls extends StatelessWidget {
                   onPressed: s.resetDemo,
                   icon: const Icon(Icons.restart_alt_rounded, size: 18),
                   label: const Text('Reset demo'),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.warning),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.warningDark,
+                  ),
                 ),
               ),
             ],
@@ -86,7 +107,6 @@ class DemoControls extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primaryDark,
         side: const BorderSide(color: AppColors.border),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       ),
     );
   }

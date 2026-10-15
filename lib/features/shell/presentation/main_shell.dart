@@ -52,7 +52,18 @@ class _MainShellState extends State<MainShell> {
           SnackBar(
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.primaryDark,
-            content: Text('💸 ${Money.fmt(p.amountKobo)} has landed! (mock)'),
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('${Money.fmt(p.amountKobo)} has landed! (mock)'),
+                ),
+              ],
+            ),
           ),
         );
         Future<void>.delayed(const Duration(milliseconds: 3200), () {
@@ -81,34 +92,42 @@ class _MainShellState extends State<MainShell> {
             foregroundColor: Colors.white,
             elevation: 3,
             icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('Ask Ajo', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text('Ask Ajo'),
           ),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
-            backgroundColor: Colors.white,
-            indicatorColor: AppColors.mintLight,
-            surfaceTintColor: Colors.transparent,
-            height: 68,
             destinations: const [
               NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home_rounded, color: AppColors.primary),
+                icon: Icon(Icons.home_rounded),
+                selectedIcon: Icon(
+                  Icons.home_rounded,
+                  color: AppColors.primary,
+                ),
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.emoji_events_outlined),
-                selectedIcon: Icon(Icons.emoji_events_rounded, color: AppColors.primary),
+                icon: Icon(Icons.emoji_events_rounded),
+                selectedIcon: Icon(
+                  Icons.emoji_events_rounded,
+                  color: AppColors.primary,
+                ),
                 label: 'My Turn',
               ),
               NavigationDestination(
-                icon: Icon(Icons.groups_outlined),
-                selectedIcon: Icon(Icons.groups_rounded, color: AppColors.primary),
+                icon: Icon(Icons.groups_rounded),
+                selectedIcon: Icon(
+                  Icons.groups_rounded,
+                  color: AppColors.primary,
+                ),
                 label: 'Friends',
               ),
               NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded),
-                selectedIcon: Icon(Icons.person_rounded, color: AppColors.primary),
+                icon: Icon(Icons.person_rounded),
+                selectedIcon: Icon(
+                  Icons.person_rounded,
+                  color: AppColors.primary,
+                ),
                 label: 'Profile',
               ),
             ],

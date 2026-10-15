@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
@@ -47,7 +48,13 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.primaryDark,
-        content: Text('🎉 You joined ${c.name}!'),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text('You joined ${c.name}!')),
+          ],
+        ),
       ),
     );
   }
@@ -56,9 +63,7 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Join a circle', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Join a circle'),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => context.pop(),
@@ -68,30 +73,34 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            const Text('🔑', style: TextStyle(fontSize: 48)),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Icon(
+                Icons.key_rounded,
+                size: 48,
+                color: AppColors.primaryDark,
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('Got an invite code?',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+            Text(
+              'Got an invite code?',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
             const SizedBox(height: 4),
-            const Text('Circles are invite-only. Ask the organizer for their code.',
-                style: TextStyle(color: AppColors.muted)),
+            Text(
+              'Circles are invite-only. Ask the organizer for their code.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+            ),
             const SizedBox(height: 20),
             TextField(
               controller: _code,
               textCapitalization: TextCapitalization.characters,
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _lookup(),
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 2),
-              decoration: InputDecoration(
-                hintText: 'AJO-XXXX',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
+              style: context.type.codeInput,
+              decoration: const InputDecoration(hintText: 'AJO-XXXX'),
             ),
             const SizedBox(height: 14),
             PrimaryButton(label: 'Look up circle', onPressed: _lookup),
@@ -103,9 +112,26 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
                   color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(_error!,
-                    style: const TextStyle(
-                        color: AppColors.warning, fontWeight: FontWeight.w600)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.error_rounded,
+                      color: AppColors.warningDark,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _error!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.warningDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             if (_found != null) ...[
@@ -116,16 +142,28 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_found!.name,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                    Text(
+                      _found!.name,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                        '${Money.fmt(_found!.amountKobo)} ${_found!.frequency.label.toLowerCase()} · ${_found!.memberCount} of ${_found!.size} members'),
+                      '${Money.fmt(_found!.amountKobo)} ${_found!.frequency.label.toLowerCase()} · ${_found!.memberCount} of ${_found!.size} members',
+                      style: context.type.moneyBody,
+                    ),
                     const SizedBox(height: 4),
-                    Text('Organizer: ${_found!.organizer}',
-                        style: const TextStyle(color: AppColors.muted)),
+                    Text(
+                      'Organizer: ${_found!.organizer}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+                    ),
                     const SizedBox(height: 14),
-                    PrimaryButton(label: 'Join circle', icon: Icons.handshake_rounded, onPressed: _join),
+                    PrimaryButton(
+                      label: 'Join circle',
+                      icon: Icons.handshake_rounded,
+                      onPressed: _join,
+                    ),
                   ],
                 ),
               ),

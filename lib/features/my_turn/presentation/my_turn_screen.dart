@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/demo_controls.dart';
@@ -52,28 +53,42 @@ class MyTurnScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
             children: [
-              const Reveal(
-                child: Text('My Turn 🏆',
-                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+              Reveal(
+                child: Text(
+                  'My Turn',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
               ),
               const SizedBox(height: 14),
-              Reveal(index: 1, child: _Hero(store: s, mine: mine, upcoming: upcoming, done: done)),
+              Reveal(
+                index: 1,
+                child: _Hero(
+                  store: s,
+                  mine: mine,
+                  upcoming: upcoming,
+                  done: done,
+                ),
+              ),
               const SizedBox(height: 14),
               if (held) Reveal(index: 2, child: _HoldCard(store: s)),
               if (live && mine.status == PayoutStatus.awaitingApproval)
-                const Reveal(
+                Reveal(
                   index: 2,
                   child: SectionCard(
                     color: AppColors.purpleLight,
                     borderColor: Color(0xFFD5CBFF),
                     child: Row(
                       children: [
-                        Text('🎉', style: TextStyle(fontSize: 26)),
-                        SizedBox(width: 12),
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          size: 26,
+                          color: AppColors.purple,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'The pot is full! It\'s now waiting for the organizer (Emeka) to approve the payout.',
-                            style: TextStyle(fontWeight: FontWeight.w700, height: 1.35),
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
                         ),
                       ],
@@ -88,8 +103,10 @@ class MyTurnScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Payout journey',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                        Text(
+                          'Payout journey',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 14),
                         for (var i = 0; i < _steps.length; i++)
                           _Step(
@@ -97,12 +114,12 @@ class MyTurnScreen extends StatelessWidget {
                             state: i < _stepIndex(mine.status)
                                 ? _StepState.done
                                 : i == _stepIndex(mine.status)
-                                    ? (mine.status == PayoutStatus.held
-                                        ? _StepState.warning
-                                        : mine.status == PayoutStatus.settled
-                                            ? _StepState.done
-                                            : _StepState.current)
-                                    : _StepState.todo,
+                                ? (mine.status == PayoutStatus.held
+                                      ? _StepState.warning
+                                      : mine.status == PayoutStatus.settled
+                                      ? _StepState.done
+                                      : _StepState.current)
+                                : _StepState.todo,
                             last: i == _steps.length - 1,
                           ),
                       ],
@@ -120,22 +137,37 @@ class MyTurnScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Payout receipt (mock)',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        Text(
+                          'Payout receipt (mock)',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                         const SizedBox(height: 10),
-                        _kv('Amount', Money.fmt(mine.amountKobo)),
-                        _kv('Reference', mine.reference!),
-                        _kv('Settled', mine.settledAt == null ? '-' : Dates.full(mine.settledAt!)),
+                        _kv(
+                          context,
+                          'Amount',
+                          Money.fmt(mine.amountKobo),
+                          money: true,
+                        ),
+                        _kv(context, 'Reference', mine.reference!),
+                        _kv(
+                          context,
+                          'Settled',
+                          mine.settledAt == null
+                              ? '-'
+                              : Dates.full(mine.settledAt!),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ],
               const SizedBox(height: 22),
-              const Reveal(
+              Reveal(
                 index: 4,
-                child: Text('Who gets the pot, and when',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                child: Text(
+                  'Who gets the pot, and when',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
               const SizedBox(height: 10),
               Reveal(index: 5, child: _Order(store: s)),
@@ -150,20 +182,38 @@ class MyTurnScreen extends StatelessWidget {
     );
   }
 
-  Widget _kv(String k, String v) => Padding(
+  Widget _kv(BuildContext context, String k, String v, {bool money = false}) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(k, style: const TextStyle(color: AppColors.muted)),
-            Flexible(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w700))),
+            Text(
+              k,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+            ),
+            Flexible(
+              child: Text(
+                v,
+                style: money
+                    ? context.type.moneyBody
+                    : Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
           ],
         ),
       );
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.store, required this.mine, required this.upcoming, required this.done});
+  const _Hero({
+    required this.store,
+    required this.mine,
+    required this.upcoming,
+    required this.done,
+  });
 
   final AjoStore store;
   final Payout mine;
@@ -175,7 +225,7 @@ class _Hero extends StatelessWidget {
     String title;
     String subtitle;
     if (done) {
-      title = 'You\'ve been paid! 🎊';
+      title = 'You\'ve been paid!';
       subtitle = 'Round ${mine.round} payout is settled.';
     } else if (upcoming) {
       final n = mine.round - store.currentRound;
@@ -183,7 +233,7 @@ class _Hero extends StatelessWidget {
       subtitle =
           'In $n round${n == 1 ? '' : 's'} · around ${Dates.short(store.dueOf(mine.round))}';
     } else {
-      title = 'It\'s your turn! 🎉';
+      title = 'It\'s your turn!';
       subtitle = 'Round ${mine.round} of ${store.totalRounds}';
     }
     return Container(
@@ -207,21 +257,30 @@ class _Hero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+          ),
           const SizedBox(height: 4),
-          Text(subtitle,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.88),
+            ),
+          ),
           const SizedBox(height: 18),
-          Text(Money.fmt(mine.amountKobo),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 42,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1)),
-          Text('Full pot · ${store.members.length} members × ${Money.fmt(store.contributionKobo)}',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+          Text(
+            Money.fmt(mine.amountKobo),
+            style: context.type.moneyDisplay.copyWith(color: Colors.white),
+          ),
+          Text(
+            'Full pot · ${store.members.length} members × ${Money.fmt(store.contributionKobo)}',
+            style: context.type.moneyCaption.copyWith(
+              color: Colors.white.withValues(alpha: 0.88),
+            ),
+          ),
         ],
       ),
     );
@@ -247,17 +306,23 @@ class _HoldCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.pause_circle_filled_rounded, color: AppColors.warning),
+              const Icon(
+                Icons.pause_circle_rounded,
+                color: AppColors.warningDark,
+              ),
               const SizedBox(width: 8),
-              const Text('Payout on hold',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16.5, color: AppColors.warning)),
+              Text(
+                'Payout on hold',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: AppColors.warningDark),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'The pot is ${Money.fmt(store.shortfall(store.currentRound))} short. Nobody gets paid short — once it\'s full, it goes to the organizer for approval.',
-            style: const TextStyle(height: 1.4),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
           for (final o in list)
@@ -270,7 +335,7 @@ class _HoldCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '${store.member(o.memberId).name} · ${Money.fmt(o.remainingKobo)} to go',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: context.type.moneyBody,
                     ),
                   ),
                   OutlinedButton(
@@ -279,13 +344,26 @@ class _HoldCard extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           behavior: SnackBarBehavior.floating,
-                          content: Text('Reminder sent to ${store.member(o.memberId).name} 👋'),
+                          content: Row(
+                            children: [
+                              const Icon(
+                                Icons.notifications_active_rounded,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Reminder sent to ${store.member(o.memberId).name}',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.warning,
-                      side: const BorderSide(color: AppColors.warning),
+                      foregroundColor: AppColors.warningDark,
+                      side: const BorderSide(color: AppColors.warningDark),
                       visualDensity: VisualDensity.compact,
                     ),
                     child: const Text('Nudge'),
@@ -327,7 +405,11 @@ class _Step extends StatelessWidget {
         break;
       case _StepState.warning:
         c = AppColors.warning;
-        icon = const Icon(Icons.priority_high_rounded, color: Colors.white, size: 16);
+        icon = const Icon(
+          Icons.priority_high_rounded,
+          color: Colors.white,
+          size: 16,
+        );
         break;
       case _StepState.todo:
         c = AppColors.border;
@@ -350,9 +432,7 @@ class _Step extends StatelessWidget {
                   child: icon,
                 ),
                 if (!last)
-                  Expanded(
-                    child: Container(width: 2, color: AppColors.border),
-                  ),
+                  Expanded(child: Container(width: 2, color: AppColors.border)),
               ],
             ),
           ),
@@ -362,10 +442,15 @@ class _Step extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 18, top: 2),
               child: Text(
                 label,
-                style: TextStyle(
-                  fontWeight: state == _StepState.todo ? FontWeight.w500 : FontWeight.w800,
-                  color: state == _StepState.todo ? AppColors.muted : AppColors.ink,
-                ),
+                style:
+                    (state == _StepState.todo
+                            ? Theme.of(context).textTheme.bodyMedium
+                            : Theme.of(context).textTheme.titleSmall)
+                        ?.copyWith(
+                          color: state == _StepState.todo
+                              ? AppColors.muted
+                              : AppColors.ink,
+                        ),
               ),
             ),
           ),
@@ -387,7 +472,7 @@ class _Order extends StatelessWidget {
       child: Column(
         children: [
           for (var i = 0; i < store.payouts.length; i++) ...[
-            _row(store.payouts[i]),
+            _row(context, store.payouts[i]),
             if (i != store.payouts.length - 1)
               const Divider(height: 1, color: AppColors.border),
           ],
@@ -396,7 +481,7 @@ class _Order extends StatelessWidget {
     );
   }
 
-  Widget _row(Payout p) {
+  Widget _row(BuildContext context, Payout p) {
     final m = store.member(p.recipientId);
     final current = p.round == store.currentRound;
     final settled = p.status == PayoutStatus.settled;
@@ -407,8 +492,12 @@ class _Order extends StatelessWidget {
         children: [
           SizedBox(
             width: 30,
-            child: Text('${p.round}',
-                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.muted)),
+            child: Text(
+              '${p.round}',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: AppColors.muted),
+            ),
           ),
           MemberAvatar(member: m, size: 34),
           const SizedBox(width: 10),
@@ -416,21 +505,49 @@ class _Order extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(m.isMe ? '${m.name} (you)' : m.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(Dates.short(store.dueOf(p.round)),
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text(
+                  m.isMe ? '${m.name} (you)' : m.name,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(
+                  Dates.short(store.dueOf(p.round)),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+                ),
               ],
             ),
           ),
           if (settled)
-            const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.primary,
+              size: 22,
+            )
           else if (current)
-            const Text('NOW',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800, color: AppColors.purple, fontSize: 12))
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.play_circle_rounded,
+                  color: AppColors.purple,
+                  size: 18,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  'NOW',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: AppColors.purple),
+                ),
+              ],
+            )
           else
-            const Icon(Icons.schedule_rounded, color: AppColors.muted, size: 20),
+            const Icon(
+              Icons.schedule_rounded,
+              color: AppColors.muted,
+              size: 20,
+            ),
         ],
       ),
     );
@@ -442,22 +559,24 @@ class _HowItWorks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SectionCard(
+    return SectionCard(
       color: AppColors.skyLight,
       borderColor: Color(0xFFBFDDF3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('How payouts work',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
-          SizedBox(height: 8),
+          Text(
+            'How payouts work',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
           Text(
             '• Everyone pays the same amount each round.\n'
             '• The payout is only released when the pot is full.\n'
             '• If someone is short, the payout is held — never paid out short.\n'
             '• The organizer approves, then the money is sent.\n'
             '• Prototype: no real money moves.',
-            style: TextStyle(height: 1.5),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),
