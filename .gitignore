@@ -33,6 +33,15 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Python backend
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.venv/
+.env
+
 # Symbolication related
 app.*.symbols
 

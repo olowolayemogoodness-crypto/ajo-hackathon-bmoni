@@ -6,6 +6,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Ledger status, reliability, and reminder rules live in `lib/data/logic/`. Keep them side-effect free and cover rule changes with focused tests under `test/`.
 - Money values are integer kobo throughout. Payment providers must implement `lib/data/payments/payments_adapter.dart`, preserve idempotency, and label simulations clearly.
 - Validate changes with `flutter analyze` and `flutter test`.
+- Backend setup and checks are documented in `backend/README.md`; run backend tests from `backend/` with `python -m pytest`.
+- Keep backend credentials in environment/ADC configuration; never commit `.env` files or service-account keys.
 
 ## Maintaining this file
 
