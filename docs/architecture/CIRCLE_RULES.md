@@ -3,20 +3,31 @@
 - **Proposed version:** `ajo-circle-rules-1.0.0`
 - **Status:** Draft pending explicit approval; not authoritative
 - **Scope:** Membership, participation, contributions, payouts, disputes, privacy, and circle governance
+- **Publication:** No immutable copy exists. Do not configure this version on a circle or use it for acceptance.
 
 ## 1. Membership and eligibility
 
-Participation in an Ajo circle requires authentication, a valid invitation where required, explicit acceptance of the circle's current approved rules, and successful backend validation.
+Participation in an Ajo circle requires authentication, a valid invitation, explicit acceptance of the circle's current approved rules, and successful backend validation. A valid invitation permits admission after those checks; a second organizer approval is not required.
 
-Membership is subject to the circle's configured capacity and eligibility requirements. Previous membership does not guarantee automatic re-entry after leaving or revocation.
+Each circle has an explicitly configured positive member capacity. Active members, including the organizer, count toward it; pending invitations do not. An invitation cannot be accepted when the circle is full.
+
+Invitations expire seven days after creation and are single-use by default. An organizer may issue a multi-use invitation only with an explicit maximum-use count. A use is consumed only when acceptance and membership activation commit successfully. Expired, revoked, exhausted, or otherwise invalid invitations cannot be used.
+
+Previous membership does not guarantee automatic re-entry after leaving or revocation. Rejoining requires a fresh valid invitation, authentication, acceptance of the current rules, and current eligibility/capacity checks. Rejoining does not automatically restore organizer privileges.
 
 Members must keep their account and participation information accurate.
 
 ## 2. Contributions and financial records
 
-Contribution amounts, schedules, due dates, grace periods, confirmed payments, outstanding obligations, and payout eligibility are determined by the authoritative backend records and approved circle configuration.
+Contribution amounts, schedules, due dates, grace periods, confirmed payments, outstanding obligations, and payout eligibility are determined by authoritative backend records and approved circle configuration. A client or AI explanation cannot set or override those facts.
 
-Amounts are represented internally in integer kobo. A payment is not confirmed merely because a member reports making it, a client displays success, or a request times out.
+Amounts are represented as integer kobo. Partial contributions are permitted and credited only after verified confirmation to the explicit obligation. The remaining amount stays outstanding; a partial contribution does not satisfy full-funding requirements for payout eligibility. Contributions are not automatically allocated across obligations.
+
+Schedule times use `Africa/Lagos` policy time and are persisted as UTC instants. Each obligation has an explicit due instant and a 24-hour grace period. Exactly at the grace deadline is within grace; a payment is late, or an unpaid obligation becomes overdue, only after that deadline.
+
+Use a trustworthy provider transaction-success timestamp to classify timeliness. Do not substitute device time, payment initiation, or webhook arrival. If amount and success are verified but transaction time is missing or untrusted, the amount may be credited as timing-unverified; it must not be classified on-time or late, and lateness-dependent decisions wait for reconciliation.
+
+A payment is not confirmed merely because a member reports making it, a client displays success, or a request times out. Provider or reconciliation evidence must be verified by the backend. A verified event that cannot be safely allocated remains unapplied and under review; it is not discarded, double-credited, automatically carried forward, or automatically refunded.
 
 Historical financial records must not be silently deleted or overwritten. Corrections and reversals must be recorded as linked, auditable events.
 
@@ -24,57 +35,63 @@ Members must not assume that leaving a circle cancels an existing financial obli
 
 ## 3. Payment and payout safety
 
-Payouts are subject to the circle's approved payout order, applicable eligibility requirements, required approvals, and verified financial state.
+Payouts are subject to the circle's approved payout order, applicable eligibility requirements, required approvals, and verified financial state. A missing required contribution, unresolved reconciliation, or other failed release condition prevents payout eligibility or keeps the payout held.
 
-A payout may be held when required contributions, approvals, reconciliation, or other release conditions remain unresolved.
+A non-recipient organizer may approve an eligible payout. An organizer who is the intended recipient cannot approve it; an active non-recipient co-approver must be appointed and must accept the appointment. Approval is audited and is not evidence of settlement.
+
+Only verified settlement evidence may mark a real payout settled. A timeout or uncertain provider outcome is unresolved, not proof of success or failure, and must not trigger a blind duplicate transfer. Real-money transfers are outside the approved hackathon MVP. Any synthetic simulation must be explicitly authorized, clearly labelled, and isolated from real-provider behavior; provider failure never enables simulation.
 
 No member or organizer may bypass backend release conditions, impersonate another member, or treat an uncertain provider result as proof that a transfer succeeded.
 
 ## 4. Organizer responsibilities and accountability
 
-Organizers administer membership and circle settings only within their authorized permissions.
+Organizers administer membership and circle settings only within their authorized permissions. They may revoke another active member only through the authorized process and with a non-empty reason; they cannot revoke themselves through that operation. An active member may leave their own circle, with an optional reason.
 
-Organizer actions affecting membership, rules, schedules, approvals, and other protected operations are subject to backend authorization and audit requirements.
+Membership transitions and audit events are committed atomically. Revocation or departure immediately removes active circle access but does not erase obligations, contributions, reversals, disputes, payouts, or audit history, and does not automatically settle or cancel financial state.
 
-An organizer must not approve their own payout where independent approval is required. Conflicted disputes must follow the circle's approved independent-review procedure.
+Organizer actions affecting membership, rules, schedules, approvals, and other protected operations are subject to backend authorization and audit requirements. A circle organizer cannot publish global Ajo rules or classify global rule changes.
 
-The final active organizer must not leave or be removed without an authorized succession or circle-closure procedure.
+The final active organizer must not leave or be removed until an eligible active member has been explicitly promoted to organizer, or the circle is closed through a separate authorized workflow. Organizer privileges are never transferred implicitly.
+
+An organizer cannot approve their own payout. Conflicted disputes must follow the approved independent-review procedure; the independent-reviewer appointment policy remains unresolved.
 
 ## 5. Leaving, removal, and rejoining
 
-Members may leave their circle through the approved backend process, subject to applicable governance and financial safeguards.
+Members may leave their circle through the approved backend process. A final active organizer cannot leave while the circle remains operational unless another eligible active member has first been explicitly promoted.
 
-Authorized organizers may revoke another member's membership only through the permitted, audited procedure.
+An active organizer may revoke another active member with a required reason. Every successful revocation or voluntary departure is audited with actor, affected membership, action, previous/resulting state, timestamp, request ID, and applicable reason.
 
-Rejoining requires the applicable invitation, authentication, fresh acceptance of the current rules, and successful eligibility and capacity checks. Previous membership does not automatically restore access or organizer privileges.
+Rejoining after leaving or revocation requires a new valid invitation and fresh acceptance of the current rules. The stable membership record may be reactivated only in the successful acceptance transaction; append-only events preserve each prior tenure. A revoked member cannot directly reactivate, and a returning member re-enters as an ordinary member.
 
-Membership changes must not erase financial history or settle outstanding obligations automatically.
+Membership changes must not erase financial history, settle outstanding obligations, or cancel pending financial operations automatically. Apply the relevant financial reconciliation and payout-hold policies.
 
 ## 6. Disputes and corrections
 
-Members may raise disputes through the supported process.
+Members may raise disputes through the supported process. A non-conflicted organizer may review and resolve a dispute.
 
-Disputes must be reviewed by an authorized, non-conflicted reviewer. Where the ordinary reviewer is conflicted, the approved independent-review or escalation procedure applies.
+If the organizer is a party to the dispute or a beneficiary of the affected payout, an independent authorized reviewer is required. Reviewer appointment and authority remain unresolved; until resolved, a conflicted dispute must remain open/escalated and an affected payout must remain held where correctness requires it.
 
-Accepted corrections must preserve the original financial record and create linked corrective or reversal records. Any movement of money must be separately authorized and verified.
+Accepted corrections preserve the original financial record and create linked append-only corrective or reversal records. An internal dispute decision is not proof of a provider refund. Any movement of money must be separately authorized and verified.
 
 ## 7. Privacy and access
 
-Members may access information they are authorized to see, including their own relevant financial history and obligations.
+Members may access information they are authorized to see, including their own relevant financial history, obligations, disputes, and reconciliation information.
 
 Membership does not grant access to another member's private banking information, authentication credentials, or otherwise restricted personal data.
 
 The backend, not the client interface or AI assistant, determines authorization. AI-generated explanations do not override authoritative financial records or permissions.
 
+This draft is not a privacy notice and does not define data retention, legal basis, or all personal-data handling. No separate approved privacy notice or data-retention document was found in the repository. Identify and approve the applicable documents and link them here before publication; do not infer legal terms from this draft.
+
 ## 8. Rules changes and acceptance
 
-Each circle must reference an approved, immutable rules version.
+Each circle must reference an approved, immutable rules version. The version is stored per circle and controlled by the backend; clients cannot create or select an authoritative version by supplying a string.
 
 Accepting a version means accepting the exact content identified by that version. Earlier acceptance records must be preserved.
 
-New members must accept the current version. Existing members must reaccept material changes according to the approved reacceptance policy. A rules update must not silently imply consent.
+New members must accept the current version. The project-level rules publisher and independent reviewer classify each proposed update as `MATERIAL` or `NON_MATERIAL`, with rationale and affected actions. Non-material changes do not force existing members to reaccept. Material changes require affected members to accept the new version before the recorded protected participation actions, such as invitation activity, initiating contribution periods, changing participation settings, or requesting a payout where acceptance is required.
 
-Members who must reaccept should retain access to the rules and to relevant historical financial, dispute, and reconciliation information.
+Members who must reaccept retain access to sign in, review and accept the rules, view their own historical contributions and obligations, and access relevant dispute/reconciliation information. Default to read-only circle access while acceptance is pending. A rules update does not change existing financial obligations or transactions.
 
 ## 9. Prohibited conduct
 
@@ -90,6 +107,8 @@ By accepting this rules version, the member acknowledges that they have been giv
 
 ## Approval required before publication
 
-This draft is not an authoritative rules document. Before publishing proposed version `ajo-circle-rules-1.0.0`, the Ajo project must review the text against the approved partial-payment and late-payment policies, payout approval and alternate-approver requirements, independent dispute-reviewer authority, privacy/data-retention/legal requirements, and affected actions for material changes.
+This draft is not an authoritative rules document. Before publishing proposed version `ajo-circle-rules-1.0.0`, the Ajo project must resolve the independent dispute-reviewer appointment, identify and approve the privacy notice/data-retention/legal requirements, and verify that the actual fee disclosures, circle schedule, and payout order are presented separately where applicable.
 
-The project must appoint a rules publisher and record approval. After approval, commit an immutable copy under `docs/architecture/circle-rules/`, record its content digest and approval evidence, and configure circles explicitly. Do not seed or use the proposed version as an approved runtime default.
+The project must explicitly appoint a project-level `rules_publisher` and an independent `rules_reviewer`; neither role is inherited from circle organizer status. Record appointments, approval, version ID, content digest, materiality classification, rationale, affected actions, and UTC timestamps. Any content/classification change invalidates prior approval and requires a new review.
+
+After explicit approval, commit an immutable copy under `docs/architecture/circle-rules/` and configure circles explicitly. No immutable copy, version ID, publisher, or reviewer is currently approved. Do not seed or use the proposed version as an approved runtime default.
