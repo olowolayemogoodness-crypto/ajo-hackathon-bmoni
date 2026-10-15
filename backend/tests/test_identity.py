@@ -101,6 +101,19 @@ def test_session_rejects_invalid_token_and_surfaces_provider_outage_safely() -> 
     engine.dispose()
 
 
+def test_session_returns_safe_service_error_when_database_is_unavailable() -> None:
+    identity = VerifiedIdentity(firebase_uid="firebase-uid-db", display_name=None)
+    app, engine = make_app(FakeVerifier({"valid-token": identity}))
+    User.metadata.drop_all(engine)
+
+    response = post_session(app, "Bearer valid-token")
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "temporarily_unavailable"
+    assert "sqlalchemy" not in response.text.lower()
+    engine.dispose()
+
+
 def test_firebase_verifier_checks_revocation_and_project_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -118,6 +131,33 @@ def test_firebase_verifier_checks_revocation_and_project_app(
 
     assert identity == VerifiedIdentity("firebase-uid-2", "Aisha Bello")
     assert calls == {"token": "firebase-token", "app": app_marker, "check_revoked": True}
+
+
+@pytest.mark.parametrize(
+    "token_error",
+    [
+        auth.InvalidIdTokenError,
+        auth.ExpiredIdTokenError,
+        auth.RevokedIdTokenError,
+        auth.UserDisabledError,
+        auth.UserNotFoundError,
+    ],
+)
+def test_firebase_verifier_rejects_invalid_expired_revoked_and_disabled_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+    token_error: type[Exception],
+) -> None:
+    monkeypatch.setattr(firebase_admin, "get_app", lambda name: object())
+
+    def reject_token(token: str, *, app, check_revoked: bool):
+        if token_error is auth.ExpiredIdTokenError:
+            raise token_error("rejected token", ValueError("expired"))
+        raise token_error("rejected token")
+
+    monkeypatch.setattr(auth, "verify_id_token", reject_token)
+
+    with pytest.raises(InvalidFirebaseToken):
+        FirebaseIdentityVerifier("ajo-hackathon").verify("invalid-token")
 
 
 def test_alembic_migration_creates_internal_users_table(

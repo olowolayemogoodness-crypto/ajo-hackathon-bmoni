@@ -27,3 +27,12 @@ ruff check .
 ```
 
 Foundation tests inject SQLite in memory so liveness/readiness behavior can be tested without a local PostgreSQL service. They do not replace PostgreSQL integration tests for migrations, constraints, locks, or transaction behavior.
+
+The PostgreSQL integration test is opt-in. Set `AJO_TEST_POSTGRES_URL` to a disposable database whose name ends in `_test`; the test refuses other database names and upgrades the schema in that database. Then run:
+
+```powershell
+$env:AJO_TEST_POSTGRES_URL = "postgresql+psycopg://localhost:5432/ajo_test"
+python -m pytest -m postgres
+```
+
+The PostgreSQL test verifies the users migration and concurrent first-time session requests for one Firebase UID. Do not point it at a development or production database.
