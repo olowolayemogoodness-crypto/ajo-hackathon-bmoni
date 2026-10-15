@@ -19,7 +19,7 @@ Plan the full backend programme once, then implement it as independently reviewa
 
 ## 2. Baseline and policy authority
 
-The current implementation has Firebase token verification, internal user mapping, session membership summaries, circle-scoped reads, active-membership checks, organizer role checks, and PostgreSQL migration/concurrency coverage. The membership table has one row per `(circle_id, user_id)` and status values `active`, `inactive`, and `revoked`. It does not yet persist invitations, accepted rule versions, or membership audit history.
+The current implementation has Firebase token verification, internal user mapping, session membership summaries, circle-scoped reads, active-membership checks, organizer role checks, append-only membership lifecycle events for leave/revocation/promotion, and PostgreSQL migration/concurrency coverage. The membership table has one row per `(circle_id, user_id)` and status values `active`, `inactive`, and `revoked`. Invitation records, invitation acceptance, and accepted rules-version records are not implemented.
 
 The Stage 2B.1 checkpoint establishes only the behaviors exercised by its tests. It does not certify future financial workflows.
 

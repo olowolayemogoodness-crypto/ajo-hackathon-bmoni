@@ -140,7 +140,7 @@ For leave, `status` is `inactive`; for revocation, it is `revoked`; for promotio
 
 All operations derive the actor from the verified identity and current persisted membership. A non-organizer attempting revocation or promotion receives `403`. A missing/non-disclosable circle or target receives `404`. Attempts to leave/revoke an already inactive or revoked membership, revoke oneself, leave as the final active organizer, or promote an existing organizer receive `409 state_conflict`. A rejected retry creates no additional lifecycle event. A failed audit write returns `503` and rolls back the membership change. Promotion and later departure are separate transactions; each committed state must retain at least one active organizer.
 
-The request body carries the invitation and rules acceptance described above; membership is not active until the backend completes those checks.
+The request body carries the invitation and rules acceptance described above; membership is not active until the backend completes those checks. The `rules_v1` value below is illustrative only, is not an approved version, and must not be seeded or accepted as a runtime default.
 
 `POST /v1/circles/{circleId}/memberships` request:
 
@@ -164,7 +164,7 @@ The backend derives the user from the verified token and validates invitation au
 }
 ```
 
-Requester-approved MVP join policy: a valid invitation admits an authenticated user immediately after explicit rule acceptance and backend validation; organizer approval is not required. Expired, revoked, exhausted, duplicate, or capacity-violating invitations are rejected. Membership becomes active only after backend processing. Invitation expiry and usage-limit values remain to be approved before invitation implementation.
+Requester-approved MVP join policy: a valid invitation admits an authenticated user immediately after explicit rule acceptance and backend validation; organizer approval is not required. Expired, revoked, exhausted, duplicate, or capacity-violating invitations are rejected. Membership becomes active only after backend processing. Stage 2B.2 policy sets a 7-day TTL and single-use default, with explicitly configured multi-use limits when supported. Invitation acceptance remains unimplemented and gated until an authoritative rules version, document, and publishing authority are approved.
 
 ## 6. Financial mutation contracts (proposed)
 
