@@ -5,6 +5,7 @@ import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/circles/presentation/create_circle_screen.dart';
 import '../../features/circles/presentation/join_circle_screen.dart';
 import '../../features/pay/presentation/pay_screen.dart';
+import '../../features/pay/presentation/review_payment_screen.dart';
 import '../../features/shell/presentation/main_shell.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 
@@ -23,12 +24,17 @@ CustomTransitionPage<void> _slideUp(GoRouterState state, Widget child) {
     child: child,
     transitionDuration: const Duration(milliseconds: 320),
     transitionsBuilder: (context, animation, secondary, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-              .animate(curved),
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.08),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         ),
       );
@@ -61,12 +67,19 @@ final GoRouter appRouter = GoRouter(
       pageBuilder: (context, state) => _slideUp(state, const PayScreen()),
     ),
     GoRoute(
+      path: '/pay/review',
+      pageBuilder: (context, state) =>
+          _slideUp(state, const ReviewPaymentScreen()),
+    ),
+    GoRoute(
       path: '/circles/new',
-      pageBuilder: (context, state) => _slideUp(state, const CreateCircleScreen()),
+      pageBuilder: (context, state) =>
+          _slideUp(state, const CreateCircleScreen()),
     ),
     GoRoute(
       path: '/circles/join',
-      pageBuilder: (context, state) => _slideUp(state, const JoinCircleScreen()),
+      pageBuilder: (context, state) =>
+          _slideUp(state, const JoinCircleScreen()),
     ),
   ],
 );

@@ -36,22 +36,24 @@ class _AssistantSheetState extends State<AssistantSheet> {
   bool _typing = false;
 
   static const _suggestions = [
-    'When is my turn?',
-    'Why is my payout held?',
-    'Who hasn\'t paid?',
-    'How much is in the pot?',
-    'Show my history',
+    'Who receives next payout?',
+    'How much have I contributed?',
+    'Am I behind?',
+    'When is my next payment due?',
+    'This week\'s circle summary',
   ];
 
   @override
   void initState() {
     super.initState();
-    _msgs.add(_Msg(
-      _pidgin
-          ? 'How far ${_s.meName}! 👋 Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
-          : 'Hi ${_s.meName}! 👋 I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
-      false,
-    ));
+    _msgs.add(
+      _Msg(
+        _pidgin
+            ? 'How far ${_s.meName}! 👋 Na Ajo AI. I fit read your circle ledger and explain things. I no fit move money.'
+            : 'Hi ${_s.meName}! 👋 I\'m Ajo AI. I can read your circle\'s ledger and explain what\'s going on. I can\'t move money.',
+        false,
+      ),
+    );
   }
 
   @override
@@ -127,17 +129,30 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       gradient: AppColors.heroGradient,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Ajo AI',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                        Text('Reads your ledger · can\'t move money',
-                            style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                        Text(
+                          'Ajo AI',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Reads your ledger · can\'t move money',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -176,7 +191,10 @@ class _AssistantSheetState extends State<AssistantSheet> {
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: AppColors.border),
                   labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.primaryDark),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: AppColors.primaryDark,
+                  ),
                 ),
               ),
             ),
@@ -193,8 +211,10 @@ class _AssistantSheetState extends State<AssistantSheet> {
                         hintText: 'Ask about your circle…',
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding:
-                            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(999),
                           borderSide: const BorderSide(color: AppColors.border),
@@ -234,7 +254,9 @@ class _Bubble extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         decoration: BoxDecoration(
           color: msg.mine ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.only(

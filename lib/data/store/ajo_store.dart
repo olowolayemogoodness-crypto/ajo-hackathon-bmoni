@@ -3,9 +3,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../core/utils/dates.dart';
 import '../../core/utils/money.dart';
+import '../logic/ledger_logic.dart';
+import '../logic/reliability_logic.dart';
+import '../logic/reminder_logic.dart';
+import '../mock/seed_data.dart';
 import '../models/models.dart';
 import '../payments/mock_payments_adapter.dart';
 import '../payments/payments_adapter.dart';
@@ -21,10 +24,10 @@ class AjoStore extends ChangeNotifier {
 
   final PaymentsAdapter payments = MockPaymentsAdapter();
 
-  String meName = 'Tolu';
-  String circleName = 'Campus Ajo';
-  int contributionKobo = 500000; // ₦5,000
-  int totalRounds = 10;
+  String meName = DemoSeed.signedInName;
+  String circleName = DemoSeed.circleName;
+  int contributionKobo = DemoSeed.contributionKobo;
+  int totalRounds = DemoSeed.totalRounds;
   int currentRound = 4;
 
   bool remindersOn = true;
@@ -38,101 +41,56 @@ class AjoStore extends ChangeNotifier {
 
   int _seq = 0;
   final Set<String> _applied = {};
+  final Set<String> _submitted = {};
   late DateTime _r4Due;
-
-  static const _names = [
-    'Chioma',
-    'Emeka',
-    'Aisha',
-    'Tolu',
-    'Femi',
-    'Ngozi',
-    'Bayo',
-    'Zainab',
-    'Kelechi',
-    'Dami',
-  ];
 
   // ---------------------------------------------------------------- seed
 
   void _seed() {
     _seq = 0;
     _applied.clear();
+    _submitted.clear();
     events = [];
     otherCircles.clear();
-    currentRound = 4;
-
-    members = List.generate(_names.length, (i) {
-      final me = i == 3;
-      return Member(
-        id: me ? 'me' : 'm${i + 1}',
-        name: me ? meName : _names[i],
-        color: AppColors.avatarPalette[i % AppColors.avatarPalette.length],
-        isMe: me,
-      );
-    });
-
-    final now = DateTime.now();
-    final d0 = DateTime(now.year, now.month, now.day);
-    final back = (d0.weekday - DateTime.friday) % 7;
-    _r4Due = DateTime(d0.year, d0.month, d0.day - back);
-
-    obligations = [];
-    for (var r = 1; r <= totalRounds; r++) {
-      for (final m in members) {
-        final due = dueOf(r);
-        final o = Obligation(
-          round: r,
-          memberId: m.id,
-          amountKobo: contributionKobo,
-          dueAt: due,
-        );
-        if (r <= 4) {
-          final late = (r == 2 && m.id == 'm9') || (r == 3 && m.id == 'm7');
-          if (r == 4 && m.id == 'm7') {
-            o.paidKobo = 200000; // Bayo part-paid
-            o.paidAt = due.subtract(const Duration(days: 1));
-          } else if (r == 4 && m.id == 'm9') {
-            // Kelechi has not paid yet
-          } else {
-            o.paidKobo = contributionKobo;
-            o.paidLate = late;
-            o.paidAt = late
-                ? due.add(const Duration(days: 2))
-                : due.subtract(const Duration(days: 1));
-          }
-        }
-        obligations.add(o);
-      }
-    }
-
-    payouts = List.generate(totalRounds, (i) {
-      final r = i + 1;
-      final p = Payout(
-        round: r,
-        recipientId: members[i].id,
-        amountKobo: pot,
-        status: r < 4 ? PayoutStatus.settled : PayoutStatus.scheduled,
-      );
-      if (r < 4) {
-        p.settledAt = dueOf(r).add(const Duration(days: 1));
-        p.reference = 'AJO-PO-R$r-${1000 + r * 137}';
-      }
-      return p;
-    });
+    final seed = DemoSeed.build();
+    currentRound = seed.currentRound;
+    _r4Due = seed.currentDueAt;
+    members = seed.members;
+    obligations = seed.obligations;
+    payouts = seed.payouts;
 
     // A little recent history so the activity feed feels alive.
     final t = DateTime.now();
-    _logAt('payment_confirmed', 'Chioma paid ${Money.fmt(contributionKobo)}',
-        t.subtract(const Duration(days: 3, hours: 2)), 4);
-    _logAt('payment_confirmed', 'Zainab paid ${Money.fmt(contributionKobo)}',
-        t.subtract(const Duration(days: 2, hours: 5)), 4);
-    _logAt('payment_confirmed', 'You paid ${Money.fmt(contributionKobo)}',
-        t.subtract(const Duration(days: 2)), 4);
-    _logAt('payment_confirmed', 'Bayo paid ${Money.fmt(200000)} (part-payment)',
-        t.subtract(const Duration(days: 1, hours: 3)), 4);
-    _logAt('round_started', 'Round 4 started — it\'s your turn to receive',
-        t.subtract(const Duration(days: 8)), 4);
+    _logAt(
+      'payment_confirmed',
+      'Chioma paid ${Money.fmt(contributionKobo)}',
+      t.subtract(const Duration(days: 3, hours: 2)),
+      4,
+    );
+    _logAt(
+      'payment_confirmed',
+      'Zainab paid ${Money.fmt(contributionKobo)}',
+      t.subtract(const Duration(days: 2, hours: 5)),
+      4,
+    );
+    _logAt(
+      'payment_confirmed',
+      'Femi paid ${Money.fmt(contributionKobo)}',
+      t.subtract(const Duration(days: 2)),
+      4,
+    );
+    _logAt(
+      'reminder_due',
+      'Your private overdue reminder is ready',
+      t.subtract(const Duration(hours: 4)),
+      4,
+    );
+    _logAt(
+      'round_started',
+      'Round 4 started — it\'s your turn to receive',
+      t.subtract(const Duration(days: 8)),
+      4,
+    );
     events.sort((a, b) => b.at.compareTo(a.at));
 
     _reconcile();
@@ -172,6 +130,40 @@ class AjoStore extends ChangeNotifier {
   List<Obligation> obligationsFor(int round) =>
       obligations.where((o) => o.round == round).toList();
 
+  ObligationStatus statusOf(Obligation obligation, {DateTime? now}) =>
+      LedgerLogic.statusFor(
+        obligation,
+        currentRound: currentRound,
+        now: now ?? DateTime.now(),
+      );
+
+  ContributionReliability reliabilityOf(String memberId, {DateTime? now}) =>
+      ReliabilityLogic.calculate(
+        obligations.where((o) => o.memberId == memberId),
+        now: now ?? DateTime.now(),
+      );
+
+  ContributionReminder? get myReminder {
+    final current = obligationOf(currentRound, 'me');
+    if (current == null) return null;
+    return ReminderLogic.forObligation(
+      current,
+      now: DateTime.now(),
+      nextDueAt: obligationOf(currentRound + 1, 'me')?.dueAt,
+    );
+  }
+
+  int contributedBy(String memberId) => obligations
+      .where((o) => o.memberId == memberId)
+      .fold(0, (sum, obligation) => sum + obligation.paidKobo);
+
+  Payout? get nextPayout {
+    for (final payout in payouts) {
+      if (payout.round > currentRound) return payout;
+    }
+    return null;
+  }
+
   int collected(int round) =>
       obligationsFor(round).fold(0, (sum, o) => sum + o.paidKobo);
 
@@ -184,13 +176,16 @@ class AjoStore extends ChangeNotifier {
       obligationsFor(round).where((o) => !o.isPaid).toList();
 
   Obligation? get myNextObligation {
-    final mine = obligations
-        .where((o) =>
-            o.memberId == 'me' &&
-            !o.isPaid &&
-            o.round <= currentRound + 1)
-        .toList()
-      ..sort((a, b) => a.round.compareTo(b.round));
+    final mine =
+        obligations
+            .where(
+              (o) =>
+                  o.memberId == 'me' &&
+                  !o.isPaid &&
+                  o.round <= currentRound + 1,
+            )
+            .toList()
+          ..sort((a, b) => a.round.compareTo(b.round));
     return mine.isEmpty ? null : mine.first;
   }
 
@@ -287,9 +282,14 @@ class AjoStore extends ChangeNotifier {
       amountKobo: ob.remainingKobo,
     );
     ob.pendingKobo = intent.amountKobo;
-    _log('payment_submitted',
+    if (_submitted.add(intent.id)) {
+      _log(
+        'payment_submitted',
         'You submitted ${Money.fmt(intent.amountKobo)} — awaiting confirmation',
-        amount: intent.amountKobo, round: ob.round);
+        amount: intent.amountKobo,
+        round: ob.round,
+      );
+    }
     notifyListeners();
     return intent;
   }
@@ -299,13 +299,16 @@ class AjoStore extends ChangeNotifier {
     if (_applied.contains(confirmed.id)) return; // idempotent
     _applied.add(confirmed.id);
     ob.pendingKobo = 0;
-    ob.paidKobo += confirmed.amountKobo;
+    ob.paidKobo = min(ob.paidKobo + confirmed.amountKobo, ob.amountKobo);
     final now = DateTime.now();
     ob.paidAt = now;
     ob.paidLate = Dates.daysFromToday(ob.dueAt) < 0;
-    _log('payment_confirmed',
-        'You paid ${Money.fmt(confirmed.amountKobo)} for Round ${ob.round}',
-        amount: confirmed.amountKobo, round: ob.round);
+    _log(
+      'payment_confirmed',
+      'You paid ${Money.fmt(confirmed.amountKobo)} for Round ${ob.round}',
+      amount: confirmed.amountKobo,
+      round: ob.round,
+    );
     _reconcile();
     notifyListeners();
   }
@@ -318,16 +321,18 @@ class AjoStore extends ChangeNotifier {
     o.paidKobo += amt;
     o.paidAt = DateTime.now();
     o.paidLate = Dates.daysFromToday(o.dueAt) < 0;
-    _log('payment_confirmed',
-        '${member(memberId).name} paid ${Money.fmt(amt)}',
-        amount: amt, round: currentRound);
+    _log(
+      'payment_confirmed',
+      '${member(memberId).name} paid ${Money.fmt(amt)}',
+      amount: amt,
+      round: currentRound,
+    );
     _reconcile();
     notifyListeners();
   }
 
   void nudge(String memberId) {
-    _log('reminder_sent', 'Reminder sent to ${member(memberId).name}',
-        round: currentRound);
+    // Reminders are private and intentionally excluded from the shared ledger.
     notifyListeners();
   }
 
@@ -335,9 +340,12 @@ class AjoStore extends ChangeNotifier {
     final p = currentPayout;
     if (p == null || p.status != PayoutStatus.awaitingApproval) return;
     p.status = PayoutStatus.processing;
-    _log('payout_approved',
-        'Organizer Emeka approved the payout — sending ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId).toLowerCase() == 'you' ? 'you' : nameOf(p.recipientId)} (mock)',
-        amount: p.amountKobo, round: p.round);
+    _log(
+      'payout_approved',
+      'Organizer Emeka approved the payout — sending ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId).toLowerCase() == 'you' ? 'you' : nameOf(p.recipientId)} (mock)',
+      amount: p.amountKobo,
+      round: p.round,
+    );
     notifyListeners();
     Timer(const Duration(seconds: 3), _settle);
   }
@@ -349,9 +357,12 @@ class AjoStore extends ChangeNotifier {
     p.settledAt = DateTime.now();
     p.reference =
         'AJO-PO-R${p.round}-${DateTime.now().millisecondsSinceEpoch % 100000}';
-    _log('payout_settled',
-        'Payout settled: ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId) == 'You' ? 'you' : nameOf(p.recipientId)}',
-        amount: p.amountKobo, round: p.round);
+    _log(
+      'payout_settled',
+      'Payout settled: ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId) == 'You' ? 'you' : nameOf(p.recipientId)}',
+      amount: p.amountKobo,
+      round: p.round,
+    );
     notifyListeners();
   }
 
@@ -432,13 +443,19 @@ class AjoStore extends ChangeNotifier {
     if (next == p.status) return;
     p.status = next;
     if (next == PayoutStatus.held) {
-      _log('payout_held',
-          'Round $currentRound payout is on hold — ${Money.fmt(shortfall(currentRound))} short',
-          amount: shortfall(currentRound), round: currentRound);
+      _log(
+        'payout_held',
+        'Round $currentRound payout is on hold — ${Money.fmt(shortfall(currentRound))} short',
+        amount: shortfall(currentRound),
+        round: currentRound,
+      );
     } else if (next == PayoutStatus.awaitingApproval) {
-      _log('payout_ready',
-          'Pot is full — Round $currentRound payout is waiting for organizer approval',
-          amount: pot, round: currentRound);
+      _log(
+        'payout_ready',
+        'Pot is full — Round $currentRound payout is waiting for organizer approval',
+        amount: pot,
+        round: currentRound,
+      );
     }
   }
 
@@ -447,16 +464,24 @@ class AjoStore extends ChangeNotifier {
     events.sort((a, b) => b.at.compareTo(a.at));
   }
 
-  void _logAt(String type, String text, DateTime at, [int? round, int? amount]) {
+  void _logAt(
+    String type,
+    String text,
+    DateTime at, [
+    int? round,
+    int? amount,
+  ]) {
     _seq++;
-    events.add(LedgerEvent(
-      id: 'evt_${_seq}_${at.millisecondsSinceEpoch}',
-      type: type,
-      text: text,
-      at: at,
-      amountKobo: amount,
-      round: round,
-    ));
+    events.add(
+      LedgerEvent(
+        id: 'evt_${_seq}_${at.millisecondsSinceEpoch}',
+        type: type,
+        text: text,
+        at: at,
+        amountKobo: amount,
+        round: round,
+      ),
+    );
   }
 
   String _code() {
