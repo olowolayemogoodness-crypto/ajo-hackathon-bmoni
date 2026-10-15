@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.circles import router as circles_router
 from app.api.health import router as health_router
 from app.api.session import router as session_router
 from app.auth.identity import FirebaseIdentityVerifier, IdentityVerifier
@@ -93,6 +94,7 @@ def create_app(
 
     app.include_router(health_router)
     app.include_router(session_router)
+    app.include_router(circles_router)
     return app
 
 

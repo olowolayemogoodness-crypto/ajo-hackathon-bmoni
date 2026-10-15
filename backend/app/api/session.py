@@ -13,6 +13,7 @@ from app.auth.identity import (
     VerifiedIdentity,
 )
 from app.db.session import get_db_session
+from app.modules.circles.repository import list_active_memberships
 from app.modules.users.repository import resolve_user
 
 router = APIRouter(prefix="/v1", tags=["session"])
@@ -26,11 +27,19 @@ class SessionUser(BaseModel):
     display_name: str | None = Field(default=None, alias="displayName")
 
 
+class MembershipSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    circle_id: str = Field(alias="circleId")
+    circle_name: str = Field(alias="circleName")
+    role: str
+
+
 class SessionResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     user: SessionUser
-    memberships: list[dict[str, object]]
+    memberships: list[MembershipSummary]
     request_id: str = Field(alias="requestId")
 
 
@@ -58,11 +67,19 @@ def create_session(
 ) -> SessionResponse:
     try:
         user = resolve_user(session, identity)
+        memberships = list_active_memberships(session, user.id)
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
 
     return SessionResponse(
         user=SessionUser(id=user.id, display_name=user.display_name),
-        memberships=[],
+        memberships=[
+            MembershipSummary(
+                circle_id=membership.circle_id,
+                circle_name=circle.name,
+                role=membership.role,
+            )
+            for membership, circle in memberships
+        ],
         request_id=request.state.request_id,
     )

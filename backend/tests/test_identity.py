@@ -17,6 +17,7 @@ from app.auth.identity import (
     VerifiedIdentity,
 )
 from app.core.config import Settings, get_settings
+from app.db.base import Base
 from app.main import create_app
 from app.modules.users.models import User
 
@@ -40,7 +41,7 @@ def make_app(verifier: FakeVerifier):
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    User.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
     app = create_app(
         settings=Settings(database_url="sqlite+pysqlite://"),
         engine=engine,
@@ -104,7 +105,7 @@ def test_session_rejects_invalid_token_and_surfaces_provider_outage_safely() -> 
 def test_session_returns_safe_service_error_when_database_is_unavailable() -> None:
     identity = VerifiedIdentity(firebase_uid="firebase-uid-db", display_name=None)
     app, engine = make_app(FakeVerifier({"valid-token": identity}))
-    User.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine)
 
     response = post_session(app, "Bearer valid-token")
 
@@ -175,6 +176,8 @@ def test_alembic_migration_creates_internal_users_table(
     engine = create_engine(database_url)
     try:
         assert "users" in inspect(engine).get_table_names()
+        assert "circles" in inspect(engine).get_table_names()
+        assert "memberships" in inspect(engine).get_table_names()
         assert "alembic_version" in inspect(engine).get_table_names()
     finally:
         engine.dispose()

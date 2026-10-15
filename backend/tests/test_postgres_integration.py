@@ -37,7 +37,8 @@ def test_postgres_migration_and_concurrent_first_session_requests(
 
     engine = create_engine(database_url)
     try:
-        existing_tables = set(inspect(engine).get_table_names()) - {"alembic_version", "users"}
+        expected_tables = {"alembic_version", "users", "circles", "memberships"}
+        existing_tables = set(inspect(engine).get_table_names()) - expected_tables
         if existing_tables:
             pytest.fail(
                 f"Expected a dedicated test database; found other tables: {existing_tables}"
@@ -49,7 +50,7 @@ def test_postgres_migration_and_concurrent_first_session_requests(
         alembic_config = Config(str(backend_root / "alembic.ini"))
         alembic_config.set_main_option("script_location", str(backend_root / "migrations"))
         command.upgrade(alembic_config, "head")
-        assert {"users", "alembic_version"}.issubset(inspect(engine).get_table_names())
+        assert expected_tables.issubset(inspect(engine).get_table_names())
 
         app = create_app(engine=engine, identity_verifier=FixedVerifier())
 
