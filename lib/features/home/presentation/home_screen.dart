@@ -898,6 +898,14 @@ class _LedgerStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (status) {
+      ObligationStatus.paid => Icons.check_circle_rounded,
+      ObligationStatus.overdue => Icons.error_rounded,
+      ObligationStatus.partiallyPaid => Icons.timelapse_rounded,
+      ObligationStatus.underReview => Icons.hourglass_top_rounded,
+      ObligationStatus.awaitingPayment => Icons.schedule_rounded,
+      ObligationStatus.upcoming => Icons.event_rounded,
+    };
     final (color, background) = switch (status) {
       ObligationStatus.paid => (AppColors.primary, AppColors.mintLight),
       ObligationStatus.overdue => (AppColors.warning, AppColors.warningLight),
@@ -913,6 +921,7 @@ class _LedgerStatusChip extends StatelessWidget {
       label: status.label,
       color: color,
       background: background,
+      icon: icon,
     );
   }
 }
@@ -935,19 +944,19 @@ class _Stats extends StatelessWidget {
       children: [
         Expanded(
           child: _Stat(
-            emoji: '🔥',
+            icon: Icons.local_fire_department_rounded,
             value: '${h.streak}',
             label: 'On-time streak',
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _Stat(emoji: '🏆', value: turn, label: 'Your turn'),
+          child: _Stat(icon: Icons.emoji_events_rounded, value: turn, label: 'Your turn'),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _Stat(
-            emoji: '👥',
+            icon: Icons.groups_rounded,
             value: '${store.members.length}',
             label: 'Members',
           ),

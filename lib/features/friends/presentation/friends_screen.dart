@@ -200,11 +200,13 @@ class _MemberRow extends StatelessWidget {
         label: 'Awaiting payment',
         color: AppColors.sky,
         background: AppColors.skyLight,
+        icon: Icons.schedule_rounded,
       ),
       ObligationStatus.upcoming => const StatusChip(
         label: 'Upcoming',
         color: AppColors.muted,
         background: Color(0xFFF0F1F4),
+        icon: Icons.event_rounded,
       ),
     };
 
@@ -277,7 +279,7 @@ class _MemberRow extends StatelessWidget {
             children: [
               chip,
               if (!o.isPaid && !member.isMe)
-                TextButton.icon(
+                TextButton(
                   onPressed: () {
                     store.nudge(member.id);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -529,6 +531,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
             Row(
               children: [
                 _count(
+                  context,
                   '${h.onTime}',
                   'On time',
                   AppColors.primary,
@@ -536,6 +539,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.late}',
                   'Late',
                   const Color(0xFF8A6100),
@@ -543,6 +547,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.missed}',
                   'Missed',
                   AppColors.warning,
