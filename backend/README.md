@@ -1,6 +1,6 @@
 # Ajo Backend
 
-Python 3.12 modular-monolith API. The backend is the intended authority for persisted product and financial facts; this foundation does not yet implement financial routes.
+Python 3.12 modular-monolith API. The backend is the intended authority for persisted product and financial facts. The one-period contribution/payout flow described below is a local synthetic demo only; no live-provider or real-money routes are implemented.
 
 ## Local setup
 
@@ -36,3 +36,27 @@ python -m pytest -m postgres
 ```
 
 The PostgreSQL test also prints the server version so the result can be recorded with the gate. Do not point it at a development or production database.
+
+## Local synthetic demo
+
+The circle create/invite/accept/activate flow and one-period simulated ledger/payout endpoints are available only when the backend is explicitly configured for a local synthetic demo. Start a disposable local PostgreSQL database, then configure these values in the backend process (never commit them):
+
+```powershell
+docker run -d --name ajo-demo-db -e POSTGRES_USER=ajo -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=ajo_demo -p 5432:5432 postgres:17
+$env:AJO_ENVIRONMENT = "local"
+$env:AJO_DATABASE_URL = "postgresql+psycopg://ajo@localhost:5432/ajo_demo"
+$env:AJO_FIREBASE_PROJECT_ID = "ajo-hackathon"
+$env:AJO_DEMO_MODE = "true"
+$env:AJO_SYNTHETIC_DATA = "true"
+$env:AJO_DEMO_OPERATOR_FIREBASE_UIDS = "<local-demo-operator-firebase-uid>"
+python -m alembic upgrade head
+python -m uvicorn app.main:app --reload
+```
+
+Demo mode fails closed unless the environment is `local` or `test`, synthetic data is explicitly enabled, and the server-side operator UID allowlist is non-empty. The allowlist grants only simulated contribution and settlement operations; organizer status alone is not sufficient. Keep the actual UID in local environment configuration, not source control.
+
+Run Flutter Web against the local API with `flutter run -d chrome --dart-define=AJO_API_BASE_URL=http://127.0.0.1:8000`. For an Android emulator, use `http://10.0.2.2:8000` as the compile-time API base URL.
+
+The demo uses the distinct, pinned rules version `ajo-demo-rules-1.0.0` in [the local demo rules](../docs/architecture/circle-rules/ajo-demo-rules-1.0.0.md). It is not production rules. Contributions and payout settlement are explicitly labelled simulated, use synthetic records only, and never call a payment provider. The one-period payout recipient is selected before activation and is locked afterward; settlement requires a separate demo-operator API action, never a timer.
+
+The Flutter flow uses `GET /v1/demo/rules` to show the exact rules before the organizer creates a circle and before an invited member accepts. `GET /v1/assistant/queries` is a deterministic, read-only explanation over the same membership-authorized backend summary; it does not use a model or perform financial actions.

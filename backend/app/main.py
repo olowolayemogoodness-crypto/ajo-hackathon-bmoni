@@ -7,9 +7,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.cors import CORSMiddleware
 
 from app.api.circles import router as circles_router
+from app.api.demo import router as demo_router
 from app.api.health import router as health_router
+from app.api.assistant import router as assistant_router
+from app.api.invitations import router as invitations_router
 from app.api.session import router as session_router
 from app.auth.identity import FirebaseIdentityVerifier, IdentityVerifier
 from app.core.config import Settings, get_settings
@@ -40,6 +44,14 @@ def create_app(
     app.state.settings = configured_settings
     app.state.engine = database_engine
     app.state.identity_verifier = verifier
+
+    if configured_settings.environment == "local" and configured_settings.demo_mode:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        )
 
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
@@ -95,6 +107,9 @@ def create_app(
     app.include_router(health_router)
     app.include_router(session_router)
     app.include_router(circles_router)
+    app.include_router(invitations_router)
+    app.include_router(assistant_router)
+    app.include_router(demo_router)
     return app
 
 
