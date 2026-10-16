@@ -101,7 +101,7 @@ class DemoSeed {
       );
       if (round < currentRound) {
         payout.settledAt = dueOf(round).add(const Duration(days: 1));
-        payout.reference = 'AJO-DEMO-PAYOUT-$round';
+        payout.reference = 'AJO-PAYOUT-$round';
       }
       payouts.add(payout);
     }

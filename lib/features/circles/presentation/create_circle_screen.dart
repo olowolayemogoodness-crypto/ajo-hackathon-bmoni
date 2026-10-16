@@ -638,7 +638,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Circles are invite-only. Members review these rules and must accept them before they join. (Prototype: nobody can actually join this demo circle.)',
+          'Circles are invite-only. Members review these rules and must accept them before they join.',
           textAlign: TextAlign.center,
           style: text.bodySmall?.copyWith(color: AppColors.muted),
         ),

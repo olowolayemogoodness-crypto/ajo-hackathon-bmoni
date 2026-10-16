@@ -120,7 +120,7 @@ class _JoinReviewScreenState extends State<JoinReviewScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Prototype: synthetic data only. No real money moves and no banking details are collected.',
+                    'Ajo never collects bank details, BVN or card numbers here.',
                     style: text.bodySmall?.copyWith(color: AppColors.muted),
                   ),
                 ],

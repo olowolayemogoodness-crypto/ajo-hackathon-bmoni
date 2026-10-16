@@ -5,7 +5,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/confetti.dart';
-import '../../../core/widgets/demo_badge.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/models/models.dart';
@@ -98,12 +97,12 @@ class _ReviewPaymentScreenState extends State<ReviewPaymentScreen> {
         return _review(obligation);
       case _ReviewStage.submitting:
         return _progress(
-          'Submitting to Ajo Sandbox…',
+          'Submitting payment…',
           'Creating one idempotent simulated transaction.',
         );
       case _ReviewStage.confirming:
         return _progress(
-          'Awaiting sandbox confirmation…',
+          'Awaiting confirmation…',
           'The ledger stays under review until confirmation arrives.',
           reference: _intent?.reference,
         );
@@ -116,7 +115,6 @@ class _ReviewPaymentScreenState extends State<ReviewPaymentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const DemoBadge(),
         const SizedBox(height: 14),
         Container(
           width: double.infinity,
@@ -129,7 +127,7 @@ class _ReviewPaymentScreenState extends State<ReviewPaymentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Sandbox contribution',
+                'Contribution',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.82)),
               ),
               const SizedBox(height: 6),
@@ -164,7 +162,7 @@ class _ReviewPaymentScreenState extends State<ReviewPaymentScreen> {
         if (_stage == _ReviewStage.error) ...[
           const SizedBox(height: 12),
           const Text(
-            'The simulation did not confirm. No real money moved; you can safely retry.',
+            'The payment did not confirm. You were not charged; you can safely retry.',
             style: TextStyle(
               color: AppColors.warning,
               fontWeight: FontWeight.w700,
@@ -224,7 +222,7 @@ class _ReviewPaymentScreenState extends State<ReviewPaymentScreen> {
         ),
         const SizedBox(height: 16),
         const Text(
-          'Sandbox payment confirmed',
+          'Payment confirmed',
           style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 6),

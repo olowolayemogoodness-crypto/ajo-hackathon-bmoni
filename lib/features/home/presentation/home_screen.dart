@@ -7,11 +7,11 @@ import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/bounce_tap.dart';
 import '../../../core/widgets/count_up_money.dart';
-import '../../../core/widgets/demo_badge.dart';
 import '../../../core/widgets/member_avatar.dart';
 import '../../../core/widgets/reveal.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
+import '../../assistant/presentation/assistant_sheet.dart';
 import '../../../data/models/models.dart';
 import '../../../data/store/ajo_store.dart';
 
@@ -39,10 +39,14 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
             children: [
               Reveal(
-                child: _Header(greeting: _greeting(), store: s),
+                child: _TopBar(greeting: _greeting(), store: s),
               ),
+              const SizedBox(height: 16),
+              Reveal(index: 1, child: _BalanceCard(store: s)),
               const SizedBox(height: 18),
-              Reveal(index: 1, child: _HeroCard(store: s)),
+              Reveal(index: 1, child: _QuickActions(onGoTo: onGoTo)),
+              const SizedBox(height: 18),
+              Reveal(index: 2, child: _HeroCard(store: s)),
               const SizedBox(height: 14),
               Reveal(index: 2, child: _NextMove(store: s)),
               const SizedBox(height: 14),
@@ -101,8 +105,8 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.greeting, required this.store});
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.greeting, required this.store});
 
   final String greeting;
   final AjoStore store;
@@ -111,54 +115,305 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        MemberAvatar(member: store.me, size: 46, ring: true),
-        const SizedBox(width: 12),
+        MemberAvatar(member: store.me, size: 44, ring: true),
+        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$greeting, ${store.meName} 👋',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const DemoBadge(),
-            ],
+          child: Text(
+            'Hi, ${store.meName.split(' ').first}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
         ),
-        PopupMenuButton<String>(
-          icon: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.mintLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.add_rounded, color: AppColors.primary),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          onSelected: (v) => context.push(v),
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: '/circles/new',
-              child: Text('Create a circle'),
-            ),
-            PopupMenuItem(
-              value: '/circles/join',
-              child: Text('Join with a code'),
-            ),
-          ],
+        _RoundIcon(
+          icon: Icons.support_agent_rounded,
+          onTap: () => AssistantSheet.show(context),
+        ),
+        const SizedBox(width: 8),
+        _RoundIcon(
+          icon: Icons.notifications_none_rounded,
+          dot: store.disputedRecords.isNotEmpty || store.unpaid(store.currentRound).isNotEmpty,
+          onTap: () => AssistantSheet.show(context),
         ),
       ],
     );
   }
+}
+
+class _RoundIcon extends StatelessWidget {
+  const _RoundIcon({required this.icon, required this.onTap, this.dot = false});
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool dot;
+
+  @override
+  Widget build(BuildContext context) {
+    return BounceTap(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: const BoxDecoration(
+          color: AppColors.mintLight,
+          shape: BoxShape.circle,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, color: AppColors.primary, size: 22),
+            if (dot)
+              Positioned(
+                top: 9,
+                right: 10,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: AppColors.warning,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.mintLight, width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Wallet-style balance card: what the member has paid into the circle so far.
+class _BalanceCard extends StatefulWidget {
+  const _BalanceCard({required this.store});
+
+  final AjoStore store;
+
+  @override
+  State<_BalanceCard> createState() => _BalanceCardState();
+}
+
+class _BalanceCardState extends State<_BalanceCard> {
+  bool _hidden = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.store;
+    final saved = s.obligations
+        .where((o) => o.memberId == s.me.id)
+        .fold<int>(0, (sum, o) => sum + o.paidKobo);
+    final next = s.myNextObligation;
+    final mine = s.myPayout;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Total saved in circles',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _hidden = !_hidden),
+                child: Icon(
+                  _hidden
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                  color: Colors.white.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _hidden ? '₦ ••••••' : Money.fmt(saved),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  next == null
+                      ? 'You are all paid up'
+                      : 'Next: ${Money.fmt(next.remainingKobo)} · ${Dates.relative(next.dueAt)}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12.5,
+                  ),
+                ),
+              ),
+              BounceTap(
+                onTap: () => context.push('/pay'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.add_circle_rounded,
+                        size: 16,
+                        color: AppColors.primaryDark,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        next == null ? 'View' : 'Pay now',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (mine.status != PayoutStatus.settled) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.emoji_events_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your payout of ${Money.fmt(mine.amountKobo)} comes in Round ${mine.round}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.onGoTo});
+
+  final void Function(int tab) onGoTo;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <_Action>[
+      _Action('Pay', Icons.payments_rounded, AppColors.primary,
+          AppColors.mintLight, () => context.push('/pay')),
+      _Action('My Turn', Icons.emoji_events_rounded, AppColors.goldDark,
+          AppColors.goldLight, () => onGoTo(1)),
+      _Action('Members', Icons.groups_rounded, AppColors.sky,
+          AppColors.skyLight, () => onGoTo(2)),
+      _Action('Ask Ajo', Icons.auto_awesome_rounded, AppColors.purple,
+          AppColors.purpleLight, () => AssistantSheet.show(context)),
+      _Action('New circle', Icons.add_circle_rounded, AppColors.primary,
+          AppColors.mintLight, () => context.push('/circles/new')),
+      _Action('Join', Icons.group_add_rounded, AppColors.sky,
+          AppColors.skyLight, () => context.push('/circles/join')),
+      _Action('History', Icons.receipt_long_rounded, AppColors.warningDark,
+          AppColors.warningLight, () => onGoTo(2)),
+      _Action('Profile', Icons.person_rounded, AppColors.purple,
+          AppColors.purpleLight, () => onGoTo(3)),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: GridView.count(
+        crossAxisCount: 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 14,
+        childAspectRatio: 0.95,
+        children: [
+          for (final a in items)
+            BounceTap(
+              onTap: a.onTap,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: a.bg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(a.icon, color: a.fg, size: 24),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    a.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Action {
+  const _Action(this.label, this.icon, this.fg, this.bg, this.onTap);
+
+  final String label;
+  final IconData icon;
+  final Color fg;
+  final Color bg;
+  final VoidCallback onTap;
 }
 
 String payoutChipLabel(PayoutStatus st) {
@@ -444,7 +699,7 @@ class _NextMove extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Text(
-                'Pay in sandbox',
+                'Pay now',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,

@@ -60,7 +60,7 @@ class _MainShellState extends State<MainShell> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('${Money.fmt(p.amountKobo)} has landed! (mock)'),
+                  child: Text('${Money.fmt(p.amountKobo)} has landed!'),
                 ),
               ],
             ),

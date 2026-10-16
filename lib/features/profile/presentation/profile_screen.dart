@@ -290,7 +290,7 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 14),
               Center(
                 child: Text(
-                  'Prototype only. Never enter a real BVN, PIN or card.',
+                  'Never share your PIN, OTP or card details with anyone.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.muted),

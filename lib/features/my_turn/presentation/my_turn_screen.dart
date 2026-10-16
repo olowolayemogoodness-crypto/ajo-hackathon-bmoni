@@ -138,7 +138,7 @@ class MyTurnScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Payout receipt (mock)',
+                          'Payout receipt',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 10),
@@ -574,8 +574,7 @@ class _HowItWorks extends StatelessWidget {
             '• Everyone pays the same amount each round.\n'
             '• The payout is only released when the pot is full.\n'
             '• If someone is short, the payout is held — never paid out short.\n'
-            '• The organizer approves, then the money is sent.\n'
-            '• Prototype: no real money moves.',
+            '• The organizer approves, then the money is sent.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],

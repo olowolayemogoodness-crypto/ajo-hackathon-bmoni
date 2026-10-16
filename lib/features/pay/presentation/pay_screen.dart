@@ -5,7 +5,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
-import '../../../core/widgets/demo_badge.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../data/store/ajo_store.dart';
@@ -34,7 +33,6 @@ class PayScreen extends StatelessWidget {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const DemoBadge(),
                     const SizedBox(height: 14),
                     Text(
                       Money.fmt(obligation.remainingKobo),
@@ -62,7 +60,7 @@ class PayScreen extends StatelessWidget {
                           ),
                           const Divider(color: AppColors.border),
                           _row('Due date', Dates.short(obligation.dueAt)),
-                          _row('Method', 'Ajo Sandbox Wallet'),
+                          _row('Method', 'Ajo Wallet'),
                         ],
                       ),
                     ),
@@ -77,7 +75,7 @@ class PayScreen extends StatelessWidget {
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Simulation only. No bank account is charged and no real money moves.',
+                              'Paid from your Ajo Wallet. You can review everything before you confirm.',
                               style: TextStyle(height: 1.4),
                             ),
                           ),

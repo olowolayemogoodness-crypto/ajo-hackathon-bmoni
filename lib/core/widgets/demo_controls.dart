@@ -4,7 +4,6 @@ import '../../data/models/models.dart';
 import '../../data/store/ajo_store.dart';
 import '../utils/money.dart';
 import '../theme/app_colors.dart';
-import 'demo_badge.dart';
 import 'section_card.dart';
 
 /// Lets a judge drive the whole story without waiting for real people.
@@ -46,7 +45,7 @@ class DemoControls extends StatelessWidget {
           actions.add(
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text('Sending payout… (mock, takes ~3s)'),
+              child: Text('Sending payout……'),
             ),
           );
         }
@@ -60,7 +59,7 @@ class DemoControls extends StatelessWidget {
           );
         }
         if (actions.isEmpty) {
-          actions.add(const Text('Nothing to simulate right now.'));
+          actions.add(const Text('Nothing to do right now.'));
         }
 
         return SectionCard(
@@ -69,10 +68,10 @@ class DemoControls extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DemoBadge(label: 'DEMO CONTROLS'),
+              Text('Organiser tools', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(
-                'Simulate what other people do, so you can watch the whole story unfold.',
+                'Record what other members do so the ledger, pot and payout update.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
@@ -85,7 +84,7 @@ class DemoControls extends StatelessWidget {
                 child: TextButton.icon(
                   onPressed: s.resetDemo,
                   icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                  label: const Text('Reset demo'),
+                  label: const Text('Reset circle'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.warningDark,
                   ),
