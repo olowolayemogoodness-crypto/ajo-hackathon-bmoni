@@ -238,8 +238,8 @@ class AssistantEngine {
       }
       final d = Dates.short(o.dueAt);
       return pick(
-        'Your next contribution is ${Money.fmt(o.remainingKobo)} for Round ${o.round}, due $d (${Dates.relative(o.dueAt)}). Tap "Pay" on Home to review and pay (prototype — no real money).${f()}',
-        'Your next contribution na ${Money.fmt(o.remainingKobo)} for Round ${o.round}, due $d (${Dates.relative(o.dueAt)}). Tap "Pay" for Home to review am (prototype — no real money).${f()}',
+        'Your next contribution is ${Money.fmt(o.remainingKobo)} for Round ${o.round}, due $d (${Dates.relative(o.dueAt)}). Tap "Pay" on Home to review and pay.${f()}',
+        'Your next contribution na ${Money.fmt(o.remainingKobo)} for Round ${o.round}, due $d (${Dates.relative(o.dueAt)}). Tap "Pay" for Home to review am.${f()}',
       );
     }
 

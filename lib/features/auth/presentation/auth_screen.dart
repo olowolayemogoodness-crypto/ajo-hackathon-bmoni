@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/demo_badge.dart';
 import '../../../core/widgets/google_logo.dart';
 import '../../../core/widgets/reveal.dart';
 import '../application/auth_service.dart';
@@ -185,11 +184,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Center(child: DemoBadge()),
                   const SizedBox(height: 10),
                   Center(
                     child: Text(
-                      'Prototype only. Never enter a real BVN, PIN or card.',
+                      'Never share your PIN, OTP or card details with anyone.',
                       textAlign: TextAlign.center,
                       style: Theme.of(
                         context,

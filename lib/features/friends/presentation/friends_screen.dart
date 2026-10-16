@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/member_avatar.dart';
 import '../../../core/widgets/reveal.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
+import '../../../data/logic/dispute_logic.dart';
 import '../../../data/models/models.dart';
 import '../../../data/store/ajo_store.dart';
 
@@ -127,6 +127,10 @@ class _ThisWeek extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        if (s.disputedRecords.isNotEmpty) ...[
+          Reveal(index: 3, child: _OrganiserDisputes(store: s)),
+          const SizedBox(height: 12),
+        ],
         for (var i = 0; i < s.members.length; i++)
           Reveal(
             index: 4 + (i > 6 ? 6 : i),
@@ -195,11 +199,13 @@ class _MemberRow extends StatelessWidget {
         label: 'Awaiting payment',
         color: AppColors.sky,
         background: AppColors.skyLight,
+        icon: Icons.schedule_rounded,
       ),
       ObligationStatus.upcoming => const StatusChip(
         label: 'Upcoming',
         color: AppColors.muted,
         background: Color(0xFFF0F1F4),
+        icon: Icons.event_rounded,
       ),
     };
 
@@ -231,15 +237,39 @@ class _MemberRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  isRecipient
-                      ? 'Receiving this round'
-                      : 'Round ${store.currentRound} contribution',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 12.5,
+                if (o.isDisputed)
+                  Row(
+                    children: [
+                      const StatusChip(
+                        label: 'Disputed',
+                        color: AppColors.purple,
+                        background: AppColors.purpleLight,
+                        icon: Icons.flag_rounded,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          o.disputeReason ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    isRecipient
+                        ? 'Receiving this round'
+                        : 'Round ${store.currentRound} contribution',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12.5,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -248,7 +278,7 @@ class _MemberRow extends StatelessWidget {
             children: [
               chip,
               if (!o.isPaid && !member.isMe)
-                TextButton.icon(
+                TextButton(
                   onPressed: () {
                     store.nudge(member.id);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -348,7 +378,7 @@ class _PastRoundCard extends StatelessWidget {
           leading: MemberAvatar(member: recipient, size: 40),
           title: Text(
             'Round $round · ${recipient.isMe ? 'You' : recipient.name} received ${Money.fmt(p.amountKobo)}',
-            style: const TextStyle(font⁴lWeight: FontWeight.w800, fontSize: 14.5),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
           ),
           subtitle: Text(
             '${p.settledAt == null ? '' : 'Settled ${Dates.short(p.settledAt!)} · '}$onTime/${obs.length} on time',
@@ -407,6 +437,8 @@ Color markColor(Mark m) {
     case Mark.pending:
     case Mark.upcoming:
       return AppColors.border;
+    case Mark.underReview:
+      return AppColors.purple;
   }
 }
 
@@ -426,6 +458,8 @@ String markLabel(Mark m) {
       return 'Due';
     case Mark.upcoming:
       return 'Upcoming';
+    case Mark.underReview:
+      return 'Under review';
   }
 }
 
@@ -444,6 +478,8 @@ IconData markIcon(Mark mark) {
       return Icons.hourglass_top_rounded;
     case Mark.upcoming:
       return Icons.more_horiz_rounded;
+    case Mark.underReview:
+      return Icons.hourglass_top_rounded;
   }
 }
 
@@ -459,7 +495,8 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
     builder: (ctx) => SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -493,6 +530,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
             Row(
               children: [
                 _count(
+                  context,
                   '${h.onTime}',
                   'On time',
                   AppColors.primary,
@@ -500,6 +538,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.late}',
                   'Late',
                   const Color(0xFF8A6100),
@@ -507,6 +546,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.missed}',
                   'Missed',
                   AppColors.warning,
@@ -560,6 +600,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                   Mark.onTime,
                   Mark.late,
                   Mark.overdue,
+                  Mark.underReview,
                   Mark.upcoming,
                 ])
                   Row(
@@ -610,36 +651,33 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ],
               ),
             ),
+            ..._disputedSection(store, member),
             const SizedBox(height: 10),
             const Text(
-              'This is a transparent record indicator, not a credit score or a guarantee. It never changes payout order or automatically excludes anyone, and it does not claim to know a member’s intentions. To dispute a record, contact the circle organiser.',
+              'This is a transparent record indicator, not a credit score or a guarantee. It never changes payout order or automatically excludes anyone, and it does not claim to know a member’s intentions. A disputed record is shown as under review and is not counted for or against the member.',
               style: TextStyle(
                 color: AppColors.muted,
                 fontSize: 12,
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      content: Text(
-                        'Record issue noted. The circle organiser will review it; the payout order stays unchanged.',
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.flag_outlined),
-                label: const Text('Dispute a ledger record'),
+            if (member.isMe) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    showDisputeSheet(context, store, member);
+                  },
+                  icon: const Icon(Icons.flag_outlined),
+                  label: const Text('Dispute a ledger record'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
+      ),
       ),
     ),
   );
@@ -681,4 +719,316 @@ Widget _count(
       ),
     ),
   );
+}
+
+List<Widget> _disputedSection(AjoStore store, Member member) {
+  final disputed =
+      store.obligations
+          .where((o) => o.memberId == member.id && o.isDisputed)
+          .toList()
+        ..sort((a, b) => a.round.compareTo(b.round));
+  if (disputed.isEmpty) return const <Widget>[];
+  return [
+    const SizedBox(height: 14),
+    Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.purpleLight,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Records under review',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          for (final o in disputed)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const StatusChip(
+                    label: 'Disputed',
+                    color: AppColors.purple,
+                    background: Colors.white,
+                    icon: Icons.flag_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Round ${o.round}: ${o.disputeReason}',
+                      style: const TextStyle(fontSize: 13, height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  ];
+}
+
+/// Organiser's view of open disputes (demo). Resolving a dispute never
+/// changes the payout order.
+class _OrganiserDisputes extends StatelessWidget {
+  const _OrganiserDisputes({required this.store});
+
+  final AjoStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = store.disputedRecords;
+    return SectionCard(
+      color: AppColors.purpleLight,
+      borderColor: const Color(0xFFD5CBFF),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_rounded, color: AppColors.purple, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Organiser view · disputed records',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Disputes never change the payout order or remove anyone.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: 8),
+          for (final o in items)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MemberAvatar(member: store.member(o.memberId), size: 32),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${store.nameOf(o.memberId)} · Round ${o.round}',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        Text(
+                          o.disputeReason ?? '',
+                          style: const TextStyle(fontSize: 13, height: 1.35),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => store.resolveDispute(o.round, o.memberId),
+                    child: const Text('Resolve'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+void showDisputeSheet(BuildContext context, AjoStore store, Member member) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (ctx) => _DisputeSheet(store: store, member: member),
+  );
+}
+
+class _DisputeSheet extends StatefulWidget {
+  const _DisputeSheet({required this.store, required this.member});
+
+  final AjoStore store;
+  final Member member;
+
+  @override
+  State<_DisputeSheet> createState() => _DisputeSheetState();
+}
+
+class _DisputeSheetState extends State<_DisputeSheet> {
+  final _reason = TextEditingController();
+  int? _round;
+  String? _error;
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final round = _round;
+    if (round == null) {
+      setState(() => _error = 'Choose the record you want to dispute.');
+      return;
+    }
+    try {
+      widget.store.openDispute(
+        round: round,
+        memberId: widget.member.id,
+        reason: _reason.text,
+      );
+    } on DisputeError catch (e) {
+      setState(() => _error = e.message);
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          'Round $round is now under review. The payout order is unchanged.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final records = widget.store.disputableFor(widget.member.id);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Dispute a ledger record', style: text.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                'The record moves to “Under review” and the organiser can see your reason. Payout order never changes.',
+                style: text.bodySmall?.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: 14),
+              if (records.isEmpty)
+                Text(
+                  'There are no records you can dispute right now.',
+                  style: text.bodyMedium,
+                )
+              else
+                for (final o in records)
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _round = o.round;
+                      _error = null;
+                    }),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _round == o.round
+                            ? AppColors.purpleLight
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _round == o.round
+                              ? AppColors.purple
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _round == o.round
+                                ? Icons.radio_button_checked_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            color: _round == o.round
+                                ? AppColors.purple
+                                : AppColors.muted,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Round ${o.round} · ${widget.store.statusOf(o).label}',
+                                  style: text.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  'Due ${Dates.short(o.dueAt)} · ${Money.fmt(o.paidKobo)} of ${Money.fmt(o.amountKobo)} recorded',
+                                  style: text.bodySmall?.copyWith(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _reason,
+                maxLines: 3,
+                maxLength: DisputeLogic.maxReasonLength,
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                decoration: const InputDecoration(
+                  hintText: 'What looks wrong with this record?',
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _error!,
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.warningDark,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: records.isEmpty ? null : _submit,
+                  icon: const Icon(Icons.flag_rounded),
+                  label: const Text('Submit dispute'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.purple,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

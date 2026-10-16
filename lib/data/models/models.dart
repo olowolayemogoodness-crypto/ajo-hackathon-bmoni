@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'circle_rules.dart';
+
 class Member {
   const Member({
     required this.id,
@@ -35,6 +37,13 @@ class Obligation {
   DateTime? paidAt;
   bool paidLate = false;
   bool underReview = false;
+
+  /// Set when a member disputes this record. A dispute only moves the record
+  /// to "Under review"; it never changes payouts, order or membership.
+  String? disputeReason;
+  DateTime? disputedAt;
+
+  bool get isDisputed => underReview && disputeReason != null;
 
   int get remainingKobo => amountKobo - paidKobo;
   bool get isPaid => remainingKobo <= 0;
@@ -142,6 +151,9 @@ class DraftCircle {
     required this.organizer,
     required this.memberCount,
     this.joined = false,
+    this.rules,
+    this.acceptedAt,
+    this.awaitingApproval = false,
   });
 
   final String name;
@@ -153,7 +165,17 @@ class DraftCircle {
   final int memberCount;
   final bool joined;
 
-  DraftCircle asJoined() => DraftCircle(
+  /// Full rules the member reviewed. Null for legacy/synthetic circles; the
+  /// review step derives defaults in that case.
+  final CircleRules? rules;
+
+  /// When the member explicitly accepted the rules. Null until they do.
+  final DateTime? acceptedAt;
+
+  /// True when the organiser must still approve this member.
+  final bool awaitingApproval;
+
+  DraftCircle asJoined({required DateTime acceptedAt}) => DraftCircle(
     name: name,
     amountKobo: amountKobo,
     size: size,
@@ -162,10 +184,22 @@ class DraftCircle {
     organizer: organizer,
     memberCount: memberCount + 1,
     joined: true,
+    rules: rules,
+    acceptedAt: acceptedAt,
+    awaitingApproval: rules?.approvalRequired ?? false,
   );
 }
 
-enum Mark { onTime, late, partial, overdue, missed, pending, upcoming }
+enum Mark {
+  onTime,
+  late,
+  partial,
+  overdue,
+  missed,
+  pending,
+  upcoming,
+  underReview,
+}
 
 class RoundMark {
   const RoundMark(this.round, this.mark);
