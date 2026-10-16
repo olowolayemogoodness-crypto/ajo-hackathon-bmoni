@@ -49,6 +49,12 @@ def test_postgres_migration_and_concurrent_first_session_requests(
             "circles",
             "memberships",
             "membership_events",
+            "circle_invitations",
+            "circle_periods",
+            "circle_obligations",
+            "simulated_contributions",
+            "circle_payouts",
+            "circle_payout_events",
         }
         existing_tables = set(inspect(engine).get_table_names())
         unexpected_tables = existing_tables - schema_tables
