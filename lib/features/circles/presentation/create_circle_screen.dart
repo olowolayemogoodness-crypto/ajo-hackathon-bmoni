@@ -8,8 +8,7 @@ import '../../../core/utils/money.dart';
 import '../../../core/widgets/confetti.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
-import '../../../data/models/models.dart';
-import '../../../data/store/ajo_store.dart';
+import '../../../data/repositories/circle_repository.dart';
 
 class CreateCircleScreen extends StatefulWidget {
   const CreateCircleScreen({super.key});
@@ -22,10 +21,33 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
   final _name = TextEditingController();
   int _amountNaira = 5000;
   double _size = 6;
-  Frequency _freq = Frequency.weekly;
-  DraftCircle? _created;
+  DemoCircleCreated? _created;
+  DemoRules? _rules;
+  String? _error;
+  bool _loading = false;
+  bool _loadingRules = true;
+  bool _acceptedRules = false;
 
   static const _amounts = [1000, 2000, 5000, 10000];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRules();
+  }
+
+  Future<void> _loadRules() async {
+    try {
+      final rules = await CircleRepository.instance.getDemoRules();
+      if (mounted) setState(() => _rules = rules);
+    } on CircleApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not load the demo rules.');
+    } finally {
+      if (mounted) setState(() => _loadingRules = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -33,17 +55,29 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
     super.dispose();
   }
 
-  void _create() {
+  Future<void> _create() async {
     final name = _name.text.trim().isEmpty
         ? 'My Ajo Circle'
         : _name.text.trim();
-    final c = AjoStore.instance.createCircle(
-      name: name,
-      amountKobo: Money.toKobo(_amountNaira),
-      size: _size.round(),
-      frequency: _freq,
-    );
-    setState(() => _created = c);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final circle = await CircleRepository.instance.createCircle(
+        name: name,
+        maxMembers: _size.round(),
+        contributionKobo: Money.toKobo(_amountNaira),
+        acceptedRulesVersion: _rules!.version,
+      );
+      if (mounted) setState(() => _created = circle);
+    } on CircleApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not create the circle. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -66,8 +100,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
   }
 
   Widget _form() {
-    final rounds = _size.round();
-    final pot = Money.toKobo(_amountNaira) * rounds;
+    final capacity = _size.round();
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -116,7 +149,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              '$rounds',
+              '$capacity',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(color: AppColors.primaryDark),
@@ -125,29 +158,28 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
         ),
         Slider(
           value: _size,
-          min: 3,
+          min: 2,
           max: 12,
-          divisions: 9,
+          divisions: 10,
           activeColor: AppColors.primary,
           onChanged: (v) => setState(() => _size = v),
         ),
         const SizedBox(height: 10),
-        Text('How often?', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final f in Frequency.values)
-              ChoiceChip(
-                label: Text(f.label),
-                selected: _freq == f,
-                onSelected: (_) => setState(() => _freq = f),
-                selectedColor: AppColors.mintLight,
-                labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: _freq == f ? AppColors.primaryDark : AppColors.ink,
+        SectionCard(
+          color: AppColors.mintLight,
+          borderColor: const Color(0xFFBFE8D1),
+          child: Row(
+            children: [
+              const Icon(Icons.schedule_rounded, color: AppColors.primaryDark),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Weekly contributions · due 09:00 Africa/Lagos time · 24-hour grace',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 22),
         SectionCard(
@@ -172,23 +204,68 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Each round, the pot is ${Money.fmt(pot)}. Over $rounds rounds, everyone receives it once — about ${(rounds * _freq.days / 7).round()} weeks in total.',
+                'Each active member contributes ${Money.fmt(Money.toKobo(_amountNaira))} for one demo period. The payout amount is based on active members when you activate the circle.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),
         ),
+        const SizedBox(height: 18),
+        if (_rules != null) ...[
+          Text(
+            'Local demo rules · ${_rules!.version}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 180),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  _rules!.text,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _acceptedRules,
+            onChanged: (value) => setState(() => _acceptedRules = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text('I accept these local demo rules.'),
+            subtitle: const Text('Synthetic data only. No real money.'),
+          ),
+        ] else if (_loadingRules) ...[
+          const LinearProgressIndicator(),
+        ],
         const SizedBox(height: 24),
         PrimaryButton(
           label: 'Create circle',
           icon: Icons.rocket_launch_rounded,
-          onPressed: _create,
+          loading: _loading,
+          onPressed: _loading || _loadingRules || !_acceptedRules ? null : _create,
         ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _error!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.warningDark,
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _success(DraftCircle c) {
+  Widget _success(DemoCircleCreated c) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Column(
@@ -215,7 +292,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${Money.fmt(c.amountKobo)} ${c.frequency.label.toLowerCase()} · ${c.size} people',
+            '${Money.fmt(c.contributionKobo)} weekly · up to ${c.maxMembers} members',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
@@ -231,8 +308,8 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
                   ).textTheme.labelMedium?.copyWith(color: AppColors.muted),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  c.code,
+                SelectableText(
+                  c.invitationCode,
                   style: context.type.code.copyWith(
                     color: AppColors.primaryDark,
                   ),
@@ -240,7 +317,7 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
                 const SizedBox(height: 10),
                 TextButton.icon(
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: c.code));
+                    Clipboard.setData(ClipboardData(text: c.invitationCode));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         behavior: SnackBarBehavior.floating,
@@ -256,14 +333,20 @@ class _CreateCircleScreenState extends State<CreateCircleScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Circles are invite-only. Share this code with people you trust. (Prototype: nobody can actually join this demo circle.)',
+            'Local synthetic demo only. No real money moves. The invitation expires in 7 days.',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
           ),
           const Spacer(),
-          PrimaryButton(label: 'Done', onPressed: () => context.pop()),
+          PrimaryButton(
+            label: 'Manage circle setup',
+            icon: Icons.tune_rounded,
+            onPressed: () => context.push('/circles/demo/${c.id}'),
+          ),
+          const SizedBox(height: 10),
+          TextButton(onPressed: () => context.pop(), child: const Text('Done')),
         ],
       ),
     );

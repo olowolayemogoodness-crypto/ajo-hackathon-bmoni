@@ -44,9 +44,10 @@ class DemoControls extends StatelessWidget {
         }
         if (payout.status == PayoutStatus.processing) {
           actions.add(
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text('Sending payout… (mock, takes ~3s)'),
+            _btn(
+              'Record simulated payout settlement · no real money',
+              Icons.account_balance_rounded,
+              s.simulatePayoutSettlement,
             ),
           );
         }

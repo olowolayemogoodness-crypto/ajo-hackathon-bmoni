@@ -6,8 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/section_card.dart';
-import '../../../data/models/models.dart';
-import '../../../data/store/ajo_store.dart';
+import '../../../data/repositories/circle_repository.dart';
 
 class JoinCircleScreen extends StatefulWidget {
   const JoinCircleScreen({super.key});
@@ -18,8 +17,11 @@ class JoinCircleScreen extends StatefulWidget {
 
 class _JoinCircleScreenState extends State<JoinCircleScreen> {
   final _code = TextEditingController();
-  DraftCircle? _found;
+  DemoInvitationPreview? _found;
   String? _error;
+  bool _acceptedRules = false;
+  bool _lookingUp = false;
+  bool _joining = false;
 
   @override
   void dispose() {
@@ -27,36 +29,65 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
     super.dispose();
   }
 
-  void _lookup() {
+  Future<void> _lookup() async {
     FocusScope.of(context).unfocus();
-    final c = AjoStore.instance.lookupInvite(_code.text);
     setState(() {
-      _found = c;
-      _error = c == null
-          ? 'We couldn\'t find that code. Double-check it, or try FUN-2026 to see how it works.'
-          : null;
+      _found = null;
+      _acceptedRules = false;
+      _error = null;
+      _lookingUp = true;
     });
+    try {
+      final invitation = await CircleRepository.instance.inspectInvitation(
+        _code.text.trim(),
+      );
+      if (mounted) setState(() => _found = invitation);
+    } on CircleApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not inspect this invitation. Try again.');
+    } finally {
+      if (mounted) setState(() => _lookingUp = false);
+    }
   }
 
-  void _join() {
+  Future<void> _join() async {
     final c = _found;
-    if (c == null) return;
-    AjoStore.instance.joinCircle(c);
-    final messenger = ScaffoldMessenger.of(context);
-    context.pop();
-    messenger.showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primaryDark,
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text('You joined ${c.name}!')),
-          ],
+    if (c == null || !_acceptedRules || _joining) return;
+    setState(() {
+      _joining = true;
+      _error = null;
+    });
+    try {
+      final circleId = await CircleRepository.instance.acceptInvitation(
+        invitationCode: _code.text.trim(),
+        acceptedRulesVersion: c.rulesVersion,
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      context.go('/circles/demo/${Uri.encodeComponent(circleId)}');
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.primaryDark,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('You joined ${c.name}!')),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } on CircleApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+      return;
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not join this circle. Try again.');
+      return;
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
   }
 
   @override
@@ -103,7 +134,11 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
               decoration: const InputDecoration(hintText: 'AJO-XXXX'),
             ),
             const SizedBox(height: 14),
-            PrimaryButton(label: 'Look up circle', onPressed: _lookup),
+            PrimaryButton(
+              label: 'Look up circle',
+              loading: _lookingUp,
+              onPressed: _lookingUp ? null : _lookup,
+            ),
             if (_error != null) ...[
               const SizedBox(height: 14),
               Container(
@@ -148,21 +183,55 @@ class _JoinCircleScreenState extends State<JoinCircleScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${Money.fmt(_found!.amountKobo)} ${_found!.frequency.label.toLowerCase()} · ${_found!.memberCount} of ${_found!.size} members',
+                      '${Money.fmt(_found!.contributionKobo)} weekly · ${_found!.activeMemberCount} of ${_found!.maxMembers} members',
                       style: context.type.moneyBody,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Organizer: ${_found!.organizer}',
+                      'Due 09:00 Africa/Lagos time · 24-hour grace',
                       style: Theme.of(
                         context,
                       ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Demo rules ${_found!.rulesVersion}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Scrollbar(
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            _found!.rulesText,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _acceptedRules,
+                      onChanged: (value) => setState(
+                        () => _acceptedRules = value ?? false,
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('I accept these local demo rules.'),
+                      subtitle: const Text('Synthetic data only. No real money.'),
+                    ),
+                    const SizedBox(height: 8),
                     PrimaryButton(
                       label: 'Join circle',
                       icon: Icons.handshake_rounded,
-                      onPressed: _join,
+                      loading: _joining,
+                      onPressed: _acceptedRules && !_joining ? _join : null,
                     ),
                   ],
                 ),

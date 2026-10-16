@@ -208,17 +208,17 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       controller: _input,
                       textInputAction: TextInputAction.send,
                       onSubmitted: _send,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Ask about your circle…',
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
+                        contentPadding: EdgeInsets.symmetric(
                           horizontal: 18,
                           vertical: 14,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(999),
-                          borderSide: const BorderSide(color: AppColors.border),
+                          borderSide: BorderSide(color: AppColors.border),
                         ),
                       ),
                     ),

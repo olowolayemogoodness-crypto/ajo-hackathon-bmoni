@@ -1,6 +1,6 @@
 # Ajo API Contract v1 (Draft)
 
-- **Status:** Draft contract; identity, circle-read, and membership lifecycle routes have backend implementations, while remaining endpoints are proposals pending API/mobile review
+- **Status:** Draft contract; identity, circle-read, membership lifecycle, and explicitly local synthetic demo routes have backend implementations, while remaining endpoints are proposals pending API/mobile review
 - **Depends on:** Approval of `STAGE_1_ARCHITECTURE_DECISIONS.md`
 - **Audience:** Backend, Flutter, intelligence, and QA owners
 
@@ -118,7 +118,17 @@ This contract remains a draft. Routes with backend implementations are identifie
 | `POST /v1/circles/{circleId}/memberships/{membershipId}/revoke` | Required | Active organizer revokes another active member with a required reason. Implemented; response and retry behavior below. |
 | `POST /v1/circles/{circleId}/memberships/me/leave` | Required | Active member leaves their own circle; reason is optional. Implemented; response and retry behavior below. |
 | `POST /v1/circles/{circleId}/memberships/{membershipId}/promote-organizer` | Required | Active organizer promotes an active member. Implemented; response below. |
-| `POST /v1/assistant/queries` | Required; later stage | Deferred until authorized reporting exists. Request and response below are proposals. |
+| `GET /v1/demo/rules` | Required; local synthetic demo only | Return the pinned demo rules version/text for explicit review. Implemented. |
+| `POST /v1/circles` | Required; local synthetic demo only | Create a capacity-bounded weekly demo circle and organizer membership after explicit acceptance of the pinned demo rules; returns one 7-day single-use invite code. Implemented. |
+| `POST /v1/invitations/inspect` | Required; local synthetic demo only | Inspect a valid invite and retrieve its exact demo rules version/text before acceptance. Invite code is in the request body, never a URL. |
+| `POST /v1/invitations/accept` | Required; local synthetic demo only | Accept the one-use invite and exact rules version transactionally; rejoin activates the stable membership row. |
+| `GET /v1/circles/{circleId}/demo-setup` | Active member; local synthetic demo only | Show safe pre-activation circle/member state; only the organizer receives management capability. Implemented. |
+| `POST /v1/circles/{circleId}/activate` | Organizer; local synthetic demo only | Create one weekly period, obligations, and payout for the selected non-organizer recipient; locks recipient/order. Requires organizer-selected first due date. |
+| `GET /v1/circles/{circleId}/demo-summary` | Active member; local synthetic demo only | Return persisted contribution totals, shortfall, payout status/eligibility, and a deterministic backend explanation. |
+| `POST /v1/circles/{circleId}/demo/contributions/{membershipId}` | Allowlisted demo operator; local synthetic demo only | Record an integer-kobo simulated contribution with `Idempotency-Key`; no cross-obligation allocation or overpayment. |
+| `POST /v1/circles/{circleId}/payout/approve` | Active organizer; local synthetic demo only | Approve only a fully funded payout to a non-organizer recipient. Approval is not settlement. |
+| `POST /v1/circles/{circleId}/demo/payout/settle` | Allowlisted demo operator; local synthetic demo only | Record a separate simulated settlement event after approval; no timer or provider request. |
+| `POST /v1/assistant/queries` | Active member; local synthetic demo only | Deterministic, read-only answers from the caller-authorized circle summary. Implemented for the local demo; general reporting/AI remains deferred. |
 | `POST /v1/webhooks/bmoni` | Provider-authenticated; conditional | Deferred pending official provider docs and verified signature/replay requirements. Not a user-authenticated route. |
 
 ### Implemented membership lifecycle responses and conflicts
@@ -141,6 +151,10 @@ For leave, `status` is `inactive`; for revocation, it is `revoked`; for promotio
 All operations derive the actor from the verified identity and current persisted membership. A non-organizer attempting revocation or promotion receives `403`. A missing/non-disclosable circle or target receives `404`. Attempts to leave/revoke an already inactive or revoked membership, revoke oneself, leave as the final active organizer, or promote an existing organizer receive `409 state_conflict`. A rejected retry creates no additional lifecycle event. A failed audit write returns `503` and rolls back the membership change. Promotion and later departure are separate transactions; each committed state must retain at least one active organizer.
 
 The request body carries the invitation and rules acceptance described above; membership is not active until the backend completes those checks. The `rules_v1` value below is illustrative only, is not an approved version, and must not be seeded or accepted as a runtime default.
+
+Local synthetic demo invitation acceptance instead uses the pinned demo-only version `ajo-demo-rules-1.0.0` in [`circle-rules/ajo-demo-rules-1.0.0.md`](circle-rules/ajo-demo-rules-1.0.0.md). This version is valid only when `demo_mode` and `synthetic_data` are enabled in a local/test environment. It does not approve production rules or authorize live money movement.
+
+Demo circle creation requires the organizer to submit `acceptedRulesVersion: "ajo-demo-rules-1.0.0"` after reviewing `GET /v1/demo/rules`. This is separate from accepting an invitation; both organizer and invitee acceptance are recorded against the exact version.
 
 `POST /v1/circles/{circleId}/memberships` request:
 

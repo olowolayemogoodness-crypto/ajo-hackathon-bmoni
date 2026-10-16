@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -342,24 +341,23 @@ class AjoStore extends ChangeNotifier {
     p.status = PayoutStatus.processing;
     _log(
       'payout_approved',
-      'Organizer Emeka approved the payout — sending ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId).toLowerCase() == 'you' ? 'you' : nameOf(p.recipientId)} (mock)',
+      'Organizer Emeka approved the payout — ${Money.fmt(p.amountKobo)} is awaiting explicit simulated settlement',
       amount: p.amountKobo,
       round: p.round,
     );
     notifyListeners();
-    Timer(const Duration(seconds: 3), _settle);
   }
 
-  void _settle() {
+  void simulatePayoutSettlement() {
     final p = currentPayout;
     if (p == null || p.status != PayoutStatus.processing) return;
     p.status = PayoutStatus.settled;
     p.settledAt = DateTime.now();
     p.reference =
-        'AJO-PO-R${p.round}-${DateTime.now().millisecondsSinceEpoch % 100000}';
+        'AJO-DEMO-PO-R${p.round}-${DateTime.now().millisecondsSinceEpoch % 100000}';
     _log(
       'payout_settled',
-      'Payout settled: ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId) == 'You' ? 'you' : nameOf(p.recipientId)}',
+      'Simulated payout settled: ${Money.fmt(p.amountKobo)} to ${nameOf(p.recipientId) == 'You' ? 'you' : nameOf(p.recipientId)} — no real money moved',
       amount: p.amountKobo,
       round: p.round,
     );

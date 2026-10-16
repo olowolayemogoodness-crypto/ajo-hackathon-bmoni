@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/dates.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/member_avatar.dart';
@@ -195,11 +194,13 @@ class _MemberRow extends StatelessWidget {
         label: 'Awaiting payment',
         color: AppColors.sky,
         background: AppColors.skyLight,
+        icon: Icons.schedule_rounded,
       ),
       ObligationStatus.upcoming => const StatusChip(
         label: 'Upcoming',
         color: AppColors.muted,
         background: Color(0xFFF0F1F4),
+        icon: Icons.event_outlined,
       ),
     };
 
@@ -248,7 +249,7 @@ class _MemberRow extends StatelessWidget {
             children: [
               chip,
               if (!o.isPaid && !member.isMe)
-                TextButton.icon(
+                TextButton(
                   onPressed: () {
                     store.nudge(member.id);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -348,7 +349,7 @@ class _PastRoundCard extends StatelessWidget {
           leading: MemberAvatar(member: recipient, size: 40),
           title: Text(
             'Round $round · ${recipient.isMe ? 'You' : recipient.name} received ${Money.fmt(p.amountKobo)}',
-            style: const TextStyle(font⁴lWeight: FontWeight.w800, fontSize: 14.5),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
           ),
           subtitle: Text(
             '${p.settledAt == null ? '' : 'Settled ${Dates.short(p.settledAt!)} · '}$onTime/${obs.length} on time',
@@ -493,6 +494,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
             Row(
               children: [
                 _count(
+                  context,
                   '${h.onTime}',
                   'On time',
                   AppColors.primary,
@@ -500,6 +502,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.late}',
                   'Late',
                   const Color(0xFF8A6100),
@@ -507,6 +510,7 @@ void showHistorySheet(BuildContext context, AjoStore store, Member member) {
                 ),
                 const SizedBox(width: 10),
                 _count(
+                  context,
                   '${h.missed}',
                   'Missed',
                   AppColors.warning,

@@ -654,10 +654,19 @@ class _LedgerStatusChip extends StatelessWidget {
       ObligationStatus.awaitingPayment => (AppColors.sky, AppColors.skyLight),
       ObligationStatus.upcoming => (AppColors.muted, const Color(0xFFF0F1F4)),
     };
+    final icon = switch (status) {
+      ObligationStatus.paid => Icons.check_circle_outline_rounded,
+      ObligationStatus.overdue => Icons.error_outline_rounded,
+      ObligationStatus.partiallyPaid => Icons.timelapse_rounded,
+      ObligationStatus.underReview => Icons.rate_review_outlined,
+      ObligationStatus.awaitingPayment => Icons.schedule_rounded,
+      ObligationStatus.upcoming => Icons.event_outlined,
+    };
     return StatusChip(
       label: status.label,
       color: color,
       background: background,
+      icon: icon,
     );
   }
 }
@@ -703,9 +712,9 @@ class _Stats extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value, required this.label});
+  const _Stat({required this.emoji, required this.value, required this.label});
 
-  final IconData icon;
+  final String emoji;
   final String value;
   final String label;
 
@@ -715,7 +724,7 @@ class _Stat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       child: Column(
         children: [
-          Icon(icon, size: 22, color: AppColors.primaryDark),
+          Text(emoji, style: const TextStyle(fontSize: 22)),
           const SizedBox(height: 4),
           Text(
             value,

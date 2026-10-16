@@ -1,4 +1,5 @@
 import 'package:ajo/data/assistant/assistant_engine.dart';
+import 'package:ajo/data/models/models.dart';
 import 'package:ajo/data/store/ajo_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,4 +63,23 @@ void main() {
       );
     },
   );
+
+  test('payout stays processing until explicitly simulated as settled', () {
+    final payout = store.currentPayout!;
+    payout.status = PayoutStatus.awaitingApproval;
+
+    store.approvePayout();
+
+    expect(payout.status, PayoutStatus.processing);
+    expect(store.events.where((event) => event.type == 'payout_settled'), isEmpty);
+
+    store.simulatePayoutSettlement();
+
+    expect(payout.status, PayoutStatus.settled);
+    expect(payout.reference, startsWith('AJO-DEMO-PO-'));
+    expect(
+      store.events.where((event) => event.type == 'payout_settled'),
+      hasLength(1),
+    );
+  });
 }

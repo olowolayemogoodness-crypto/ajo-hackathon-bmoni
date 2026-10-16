@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/circles/presentation/create_circle_screen.dart';
+import '../../features/circles/presentation/demo_circle_screen.dart';
 import '../../features/circles/presentation/join_circle_screen.dart';
 import '../../features/pay/presentation/pay_screen.dart';
 import '../../features/pay/presentation/review_payment_screen.dart';
@@ -80,6 +81,13 @@ final GoRouter appRouter = GoRouter(
       path: '/circles/join',
       pageBuilder: (context, state) =>
           _slideUp(state, const JoinCircleScreen()),
+    ),
+    GoRoute(
+      path: '/circles/demo/:circleId',
+      pageBuilder: (context, state) => _slideUp(
+        state,
+        DemoCircleScreen(circleId: state.pathParameters['circleId']!),
+      ),
     ),
   ],
 );
