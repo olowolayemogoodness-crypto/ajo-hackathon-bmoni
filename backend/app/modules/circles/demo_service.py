@@ -576,7 +576,7 @@ def answer_demo_question(
             "The payout is in the processing stage and is awaiting explicit "
             "simulated settlement."
         )
-    elif payout_status == "awaiting_approval":
+    elif payout_status == "awaiting_approval" and payout["eligible"]:
         answer = "The payout is awaiting organizer approval."
     elif shortfall > 0:
         outstanding = [item for item in obligations if item["remainingKobo"] > 0]
