@@ -16,6 +16,7 @@ from app.main import create_app
 from app.modules.circles.demo_service import (
     accept_demo_invitation,
     activate_demo_circle,
+    answer_demo_question,
     approve_demo_payout,
     create_demo_circle,
     get_demo_summary,
@@ -23,7 +24,13 @@ from app.modules.circles.demo_service import (
     record_simulated_contribution,
     settle_demo_payout,
 )
-from app.modules.circles.models import Circle, CirclePayout, CirclePayoutEvent, MembershipEvent
+from app.modules.circles.models import (
+    Circle,
+    CirclePeriod,
+    CirclePayout,
+    CirclePayoutEvent,
+    MembershipEvent,
+)
 from app.modules.users.models import User
 
 
@@ -503,4 +510,128 @@ def test_demo_api_creates_accepts_activates_and_reports_circle() -> None:
     )
     assert settled_answer.status_code == 200
     assert "No real money moved" in settled_answer.json()["answer"]
+    engine.dispose()
+
+
+def test_assistant_explains_payout_state_only_from_available_evidence() -> None:
+    engine = create_engine(
+        "sqlite+pysqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    settings = Settings(
+        database_url="sqlite+pysqlite://",
+        environment="test",
+        demo_mode=True,
+        synthetic_data=True,
+        demo_operator_firebase_uids="demo-operator-uid",
+    )
+    organizer_identity = VerifiedIdentity("organizer-uid", "Organizer")
+    member_identity = VerifiedIdentity("member-uid", "Member")
+    operator_identity = VerifiedIdentity("demo-operator-uid", "Demo Operator")
+
+    with Session(engine) as session:
+        created = create_demo_circle(
+            session,
+            organizer_identity,
+            "request-create",
+            name="State Explanations",
+            max_members=2,
+            contribution_kobo=100_000,
+            accepted_rules_version=DEMO_RULES_VERSION,
+            settings=settings,
+        )
+        accepted = accept_demo_invitation(
+            session,
+            member_identity,
+            "request-accept",
+            code=created["invitationCode"],
+            accepted_rules_version=DEMO_RULES_VERSION,
+            settings=settings,
+        )
+        activate_demo_circle(
+            session,
+            organizer_identity,
+            created["circleId"],
+            "request-activate",
+            payout_recipient_membership_id=accepted["membershipId"],
+            first_due_date=date.today() + timedelta(days=7),
+            settings=settings,
+        )
+
+        shortfall_answer = answer_demo_question(
+            session,
+            organizer_identity,
+            created["circleId"],
+            "Why is my payout still pending?",
+            settings,
+        )
+        assert "200000 kobo remains outstanding" in shortfall_answer["answer"]
+
+        period_id = session.scalar(
+            select(CirclePeriod.id).where(CirclePeriod.circle_id == created["circleId"])
+        )
+        payout = session.scalar(
+            select(CirclePayout).where(CirclePayout.period_id == period_id)
+        )
+        assert payout is not None
+        payout.status = "held"
+        session.commit()
+        held_answer = answer_demo_question(
+            session,
+            organizer_identity,
+            created["circleId"],
+            "Why is my payout still pending?",
+            settings,
+        )
+        assert "on hold" in held_answer["answer"].lower()
+        assert "outstanding" not in held_answer["answer"].lower()
+
+        record_simulated_contribution(
+            session,
+            operator_identity,
+            created["circleId"],
+            created["organizerMembershipId"],
+            "request-contribution-1",
+            amount_kobo=100_000,
+            idempotency_key="assistant-approval-test",
+            settings=settings,
+        )
+        record_simulated_contribution(
+            session,
+            operator_identity,
+            created["circleId"],
+            accepted["membershipId"],
+            "request-contribution-2",
+            amount_kobo=100_000,
+            idempotency_key="assistant-approval-test-member",
+            settings=settings,
+        )
+        payout = session.scalar(
+            select(CirclePayout).where(CirclePayout.period_id == period_id)
+        )
+        payout.status = "awaiting_approval"
+        session.commit()
+        approval_answer = answer_demo_question(
+            session,
+            organizer_identity,
+            created["circleId"],
+            "Why is my payout still pending?",
+            settings,
+        )
+        assert "awaiting organizer approval" in approval_answer["answer"].lower()
+
+        payout.status = "processing"
+        session.commit()
+        processing_answer = answer_demo_question(
+            session,
+            organizer_identity,
+            created["circleId"],
+            "Why is my payout still pending?",
+            settings,
+        )
+        assert "processing" in processing_answer["answer"].lower()
+        assert "awaiting explicit simulated settlement" in processing_answer["answer"].lower()
+        assert "organizer approved" not in processing_answer["answer"].lower()
     engine.dispose()

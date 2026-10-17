@@ -446,12 +446,17 @@ def get_demo_summary(
     if payout is not None and payout.status == "settled":
         explanation = (
             f"All {len(obligations)} obligations were funded. The simulated payout "
-            f"of {payout.amount_kobo} kobo is settled."
+            f"of {payout.amount_kobo} kobo is settled. No real money moved."
+        )
+    elif payout is not None and payout.status == "held":
+        explanation = (
+            "The payout is currently on hold. The backend summary does not provide a "
+            "separate hold reason."
         )
     elif payout is not None and payout.status == "processing":
         explanation = (
-            f"All {len(obligations)} obligations are funded and the organizer approved "
-            "the payout. It is awaiting an explicit simulated settlement."
+            f"All {len(obligations)} obligations are funded. The payout is in the "
+            "processing stage and is awaiting explicit simulated settlement."
         )
     elif eligible:
         payout_amount = payout.amount_kobo if payout else 0
@@ -512,8 +517,24 @@ def answer_demo_question(
     normalized = question.casefold()
     obligations = summary["obligations"]
     payout = summary["payout"]
+    payout_status = str(payout["status"])
+    shortfall = int(summary["shortfallKobo"])
 
-    if any(term in normalized for term in ("shortfall", "owe", "missing", "left to pay")):
+    if payout_status == "settled":
+        answer = "The payout is already settled. No real money moved."
+    elif payout_status == "held":
+        answer = (
+            "The payout is on hold. The backend summary does not provide a separate "
+            "hold reason."
+        )
+    elif payout_status == "processing":
+        answer = (
+            "The payout is in the processing stage and is awaiting explicit "
+            "simulated settlement."
+        )
+    elif payout_status == "awaiting_approval":
+        answer = "The payout is awaiting organizer approval."
+    elif shortfall > 0:
         outstanding = [item for item in obligations if item["remainingKobo"] > 0]
         if not outstanding:
             answer = "No contribution shortfall remains for this demo period."
@@ -522,25 +543,28 @@ def answer_demo_question(
                 f"{item['memberLabel']}: {item['remainingKobo']} kobo"
                 for item in outstanding
             )
-            answer = f"{summary['shortfallKobo']} kobo remains outstanding ({members})."
+            answer = f"{shortfall} kobo remains outstanding ({members})."
     elif any(term in normalized for term in ("eligible", "approval", "payout", "receive")):
-        if payout["status"] == "settled":
-            answer = "The simulated payout is recorded as settled. No real money moved."
-        elif payout["status"] == "processing":
-            answer = (
-                "The organizer approved the payout; explicit simulated settlement "
-                "is still required."
-            )
-        elif payout["eligible"]:
+        if payout["eligible"]:
             answer = (
                 f"The payout to {payout['recipientLabel']} is eligible and "
                 "awaits organizer approval."
             )
         else:
             answer = (
-                f"The payout is not eligible; {summary['shortfallKobo']} kobo "
-                "remains outstanding."
+                "The backend summary does not provide enough information to explain the "
+                "current payout state."
             )
+    elif any(term in normalized for term in ("shortfall", "owe", "missing", "left to pay")):
+        outstanding = [item for item in obligations if item["remainingKobo"] > 0]
+        if not outstanding:
+            answer = "No contribution shortfall remains for this demo period."
+        else:
+            members = ", ".join(
+                f"{item['memberLabel']}: {item['remainingKobo']} kobo"
+                for item in outstanding
+            )
+            answer = f"{shortfall} kobo remains outstanding ({members})."
     else:
         answer = summary["explanation"]
 
