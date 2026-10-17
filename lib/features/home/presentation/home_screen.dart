@@ -13,12 +13,14 @@ import '../../../core/widgets/reveal.dart';
 import '../../../core/widgets/section_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../data/models/models.dart';
+import '../../../data/repositories/circle_repository.dart';
 import '../../../data/store/ajo_store.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.onGoTo});
+  const HomeScreen({super.key, required this.onGoTo, this.loadActiveCircles});
 
   final void Function(int tab) onGoTo;
+  final Future<List<ActiveCircle>> Function()? loadActiveCircles;
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -40,6 +42,12 @@ class HomeScreen extends StatelessWidget {
             children: [
               Reveal(
                 child: _Header(greeting: _greeting(), store: s),
+              ),
+              const SizedBox(height: 18),
+              BackendCirclesSection(
+                loadCircles:
+                    loadActiveCircles ??
+                    CircleRepository.instance.listActiveCircles,
               ),
               const SizedBox(height: 18),
               Reveal(index: 1, child: _HeroCard(store: s)),
@@ -97,6 +105,123 @@ class HomeScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class BackendCirclesSection extends StatefulWidget {
+  const BackendCirclesSection({
+    super.key,
+    required this.loadCircles,
+    this.onCircleSelected,
+  });
+
+  final Future<List<ActiveCircle>> Function() loadCircles;
+  final ValueChanged<String>? onCircleSelected;
+
+  @override
+  State<BackendCirclesSection> createState() => _BackendCirclesSectionState();
+}
+
+class _BackendCirclesSectionState extends State<BackendCirclesSection> {
+  late Future<List<ActiveCircle>> _circles;
+
+  @override
+  void initState() {
+    super.initState();
+    _circles = widget.loadCircles();
+  }
+
+  void _retry() {
+    setState(() {
+      _circles = widget.loadCircles();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your joined circles',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          'Circles linked to your account',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<ActiveCircle>>(
+          future: _circles,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Loading your circles...'),
+                ],
+              );
+            }
+
+            if (snapshot.hasError) {
+              final error = snapshot.error;
+              final message = error is CircleApiException
+                  ? error.message
+                  : 'Could not load your circles. Check your connection and retry.';
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message),
+                  TextButton.icon(
+                    onPressed: _retry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              );
+            }
+
+            final circles = snapshot.data ?? const <ActiveCircle>[];
+            if (circles.isEmpty) {
+              return Text(
+                'No active circles yet. Create a circle or join with an invite code.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              );
+            }
+
+            return Column(
+              children: [
+                for (final circle in circles)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(circle.name),
+                    subtitle: const Text('Open contribution progress'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      final onSelected = widget.onCircleSelected;
+                      if (onSelected != null) {
+                        onSelected(circle.id);
+                      } else {
+                        context.push(
+                          '/circles/demo/${Uri.encodeComponent(circle.id)}',
+                        );
+                      }
+                    },
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
