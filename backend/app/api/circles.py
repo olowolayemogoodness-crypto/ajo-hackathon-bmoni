@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -25,7 +25,7 @@ from app.modules.circles.membership_service import (
     promote_organizer,
     revoke_membership,
 )
-from app.modules.circles.repository import get_circle_for_active_member
+from app.modules.circles.repository import get_circle_for_active_member, list_active_memberships
 from app.modules.users.repository import resolve_user
 
 router = APIRouter(prefix="/v1/circles", tags=["circles"])
@@ -34,6 +34,13 @@ router = APIRouter(prefix="/v1/circles", tags=["circles"])
 class CircleResponse(BaseModel):
     id: str
     name: str
+
+
+class CircleListResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    circles: list[CircleResponse]
+    request_id: str = Field(alias="requestId")
 
 
 class MembershipReasonRequest(BaseModel):
@@ -127,6 +134,28 @@ def create_demo_circle_route(
         )
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+
+@router.get("", response_model=CircleListResponse)
+def list_circles(
+    request: Request,
+    identity: Annotated[VerifiedIdentity, Depends(get_current_identity)],
+    session: Annotated[Session, Depends(get_db_session)],
+    membership: Literal["active"] = Query(...),
+) -> CircleListResponse:
+    try:
+        user = resolve_user(session, identity)
+        memberships = list_active_memberships(session, user.id)
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE) from exc
+
+    return CircleListResponse(
+        circles=[
+            CircleResponse(id=circle.id, name=circle.name)
+            for _membership, circle in memberships
+        ],
+        requestId=request.state.request_id,
+    )
 
 
 @router.get("/{circle_id}/demo-setup")

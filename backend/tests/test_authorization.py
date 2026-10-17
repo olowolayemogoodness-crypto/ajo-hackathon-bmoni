@@ -46,7 +46,7 @@ def request(
     app,
     method: str,
     path: str,
-    token: str,
+    token: str | None = None,
     body: dict | None = None,
 ) -> httpx.Response:
     async def send_request() -> httpx.Response:
@@ -55,7 +55,7 @@ def request(
             return await client.request(
                 method,
                 path,
-                headers={"Authorization": f"Bearer {token}"},
+                headers={"Authorization": f"Bearer {token}"} if token else {},
                 json=body,
             )
 
@@ -114,6 +114,66 @@ def test_active_member_can_read_only_their_circle() -> None:
             "role": "member",
         }
     ]
+    engine.dispose()
+
+
+def test_circle_list_returns_only_callers_active_memberships() -> None:
+    identity = VerifiedIdentity("uid-list-member", "Member")
+    app, engine = make_app({"member-token": identity})
+    user_id, first_circle_id = add_user_circle_membership(
+        engine,
+        firebase_uid=identity.firebase_uid,
+        circle_name="Alpha Circle",
+    )
+    with Session(engine) as session:
+        active_circle = Circle(name="Beta Circle")
+        inactive_circle = Circle(name="Inactive Circle")
+        other_user = User(firebase_uid="uid-list-other", display_name="Other")
+        other_circle = Circle(name="Other Circle")
+        session.add_all([active_circle, inactive_circle, other_user, other_circle])
+        session.flush()
+        session.add_all(
+            [
+                Membership(
+                    user_id=user_id,
+                    circle_id=active_circle.id,
+                    role="member",
+                    status="active",
+                ),
+                Membership(
+                    user_id=user_id,
+                    circle_id=inactive_circle.id,
+                    role="member",
+                    status="inactive",
+                ),
+                Membership(
+                    user_id=other_user.id,
+                    circle_id=other_circle.id,
+                    role="member",
+                    status="active",
+                ),
+            ]
+        )
+        session.commit()
+        active_circle_id = active_circle.id
+
+    response = request(app, "GET", "/v1/circles?membership=active", "member-token")
+
+    assert response.status_code == 200
+    assert response.json()["circles"] == [
+        {"id": first_circle_id, "name": "Alpha Circle"},
+        {"id": active_circle_id, "name": "Beta Circle"},
+    ]
+    assert response.json()["requestId"]
+    engine.dispose()
+
+
+def test_circle_list_requires_authenticated_identity() -> None:
+    app, engine = make_app({})
+
+    response = request(app, "GET", "/v1/circles?membership=active")
+
+    assert response.status_code == 401
     engine.dispose()
 
 
