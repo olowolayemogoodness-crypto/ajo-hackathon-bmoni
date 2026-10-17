@@ -425,8 +425,15 @@ def test_demo_api_creates_accepts_activates_and_reports_circle() -> None:
         },
     )
     assert explanation.status_code == 200
+    assert explanation.json()["requestId"] == explanation.headers["x-request-id"]
     assert "250000 kobo" in explanation.json()["answer"]
-    assert explanation.json()["facts"]["shortfallKobo"] == 250_000
+    assert explanation.json()["facts"] == {
+        "collectedKobo": 0,
+        "shortfallKobo": 250_000,
+        "payoutStatus": "scheduled",
+        "payoutEligible": False,
+        "mode": "simulated",
+    }
 
     outsider_question = _api_request(
         app,
@@ -439,6 +446,10 @@ def test_demo_api_creates_accepts_activates_and_reports_circle() -> None:
         },
     )
     assert outsider_question.status_code == 404
+    assert outsider_question.json()["error"]["requestId"] == outsider_question.headers[
+        "x-request-id"
+    ]
+    assert "answer" not in outsider_question.json()
 
     unauthorized_contribution = _api_request(
         app,
