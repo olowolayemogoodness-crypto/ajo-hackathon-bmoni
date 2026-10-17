@@ -443,6 +443,49 @@ def get_demo_summary(
     )
     fully_funded = bool(obligations) and shortfall == 0
     eligible = fully_funded and payout is not None and payout.status == "awaiting_approval"
+    payout_status = payout.status if payout else "unavailable"
+    current_obligation = next(
+        (
+            obligation
+            for obligation in obligations
+            if obligation["membershipId"] == current_membership.id
+        ),
+        None,
+    )
+    current_remaining = int(current_obligation["remainingKobo"]) if current_obligation else 0
+    can_operate_demo = identity.firebase_uid in settings.demo_operator_uids
+    if payout_status == "settled":
+        next_action = "No action needed. The simulated payout is settled; no real money moved."
+    elif payout_status == "held":
+        next_action = (
+            "No hold reason is available in the summary. Ask the circle's organizer "
+            "or demo operator for clarification."
+        )
+    elif payout_status == "processing":
+        next_action = (
+            "Record the simulated settlement."
+            if can_operate_demo
+            else "Wait for the payout status to update; simulated settlement is restricted "
+            "to the demo operator."
+        )
+    elif payout_status == "awaiting_approval" and eligible:
+        next_action = (
+            "Review the eligible payout; the existing approval endpoint enforces "
+            "the organizer and payout checks."
+            if current_membership.role == "organizer"
+            else "Wait for the organizer to review the eligible payout."
+        )
+    elif current_remaining > 0:
+        next_action = (
+            f"Your obligation has {current_remaining} kobo outstanding. Ask the demo "
+            "operator to record the simulated contribution."
+        )
+    elif shortfall > 0 and current_membership.role == "organizer":
+        next_action = "Follow up with members who have outstanding obligations."
+    elif shortfall > 0:
+        next_action = "Your obligation is funded. Wait for the remaining member obligations."
+    else:
+        next_action = "No next action is available from the current summary."
     if payout is not None and payout.status == "settled":
         explanation = (
             f"All {len(obligations)} obligations were funded. The simulated payout "
@@ -496,13 +539,14 @@ def get_demo_summary(
         "payout": {
             "payoutId": payout.id if payout else None,
             "amountKobo": payout.amount_kobo if payout else 0,
-            "status": payout.status if payout else "unavailable",
+            "status": payout_status,
             "eligible": eligible,
             "recipientMembershipId": recipient.id if recipient else None,
             "recipientLabel": recipient_label,
         },
         "explanation": explanation,
-        "canOperateDemo": identity.firebase_uid in settings.demo_operator_uids,
+        "nextAction": next_action,
+        "canOperateDemo": can_operate_demo,
     }
 
 

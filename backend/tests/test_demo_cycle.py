@@ -26,9 +26,9 @@ from app.modules.circles.demo_service import (
 )
 from app.modules.circles.models import (
     Circle,
-    CirclePeriod,
     CirclePayout,
     CirclePayoutEvent,
+    CirclePeriod,
     MembershipEvent,
 )
 from app.modules.users.models import User
@@ -239,6 +239,7 @@ def test_local_demo_one_period_cycle_uses_authoritative_backend_state() -> None:
         )
         assert settled_summary["payout"]["eligible"] is False
         assert "is settled" in settled_summary["explanation"]
+        assert "No action needed" in settled_summary["nextAction"]
 
         circle = session.get(Circle, created["circleId"])
         payout = session.scalar(select(CirclePayout))
@@ -568,6 +569,13 @@ def test_assistant_explains_payout_state_only_from_available_evidence() -> None:
             settings,
         )
         assert "200000 kobo remains outstanding" in shortfall_answer["answer"]
+        organizer_summary = get_demo_summary(
+            session, organizer_identity, created["circleId"], settings
+        )
+        member_summary = get_demo_summary(session, member_identity, created["circleId"], settings)
+        assert "100000 kobo outstanding" in organizer_summary["nextAction"]
+        assert "100000 kobo outstanding" in member_summary["nextAction"]
+        assert "demo operator" in member_summary["nextAction"]
 
         period_id = session.scalar(
             select(CirclePeriod.id).where(CirclePeriod.circle_id == created["circleId"])
@@ -587,6 +595,8 @@ def test_assistant_explains_payout_state_only_from_available_evidence() -> None:
         )
         assert "on hold" in held_answer["answer"].lower()
         assert "outstanding" not in held_answer["answer"].lower()
+        held_summary = get_demo_summary(session, member_identity, created["circleId"], settings)
+        assert "hold reason" in held_summary["nextAction"]
 
         record_simulated_contribution(
             session,
@@ -621,6 +631,14 @@ def test_assistant_explains_payout_state_only_from_available_evidence() -> None:
             settings,
         )
         assert "awaiting organizer approval" in approval_answer["answer"].lower()
+        approval_summary = get_demo_summary(
+            session, organizer_identity, created["circleId"], settings
+        )
+        member_approval_summary = get_demo_summary(
+            session, member_identity, created["circleId"], settings
+        )
+        assert "Review the eligible payout" in approval_summary["nextAction"]
+        assert "Wait for the organizer" in member_approval_summary["nextAction"]
 
         payout.status = "processing"
         session.commit()
@@ -634,4 +652,8 @@ def test_assistant_explains_payout_state_only_from_available_evidence() -> None:
         assert "processing" in processing_answer["answer"].lower()
         assert "awaiting explicit simulated settlement" in processing_answer["answer"].lower()
         assert "organizer approved" not in processing_answer["answer"].lower()
+        processing_summary = get_demo_summary(
+            session, organizer_identity, created["circleId"], settings
+        )
+        assert "restricted to the demo operator" in processing_summary["nextAction"]
     engine.dispose()

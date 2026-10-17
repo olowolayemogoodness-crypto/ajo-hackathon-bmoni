@@ -377,6 +377,17 @@ class _DemoCircleScreenState extends State<DemoCircleScreen> {
           ],
         ),
       ),
+      const SizedBox(height: 12),
+      SectionCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Next step', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(summary.nextAction, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      ),
       const SizedBox(height: 14),
       Text('Member obligations', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 6),

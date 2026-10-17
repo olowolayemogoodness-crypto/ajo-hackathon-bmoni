@@ -213,6 +213,7 @@ class DemoCircleSummary {
     required this.payoutEligible,
     required this.recipientLabel,
     required this.explanation,
+    required this.nextAction,
   });
 
   final String circleId;
@@ -230,6 +231,7 @@ class DemoCircleSummary {
   final bool payoutEligible;
   final String? recipientLabel;
   final String explanation;
+  final String nextAction;
 
   factory DemoCircleSummary.fromJson(Map<String, dynamic> json) {
     final circle = json['circle'] as Map<String, dynamic>;
@@ -255,6 +257,7 @@ class DemoCircleSummary {
       payoutEligible: payout['eligible'] as bool,
       recipientLabel: payout['recipientLabel'] as String?,
       explanation: json['explanation'] as String,
+      nextAction: json['nextAction'] as String,
     );
   }
 }
