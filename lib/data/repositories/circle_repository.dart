@@ -257,7 +257,9 @@ class DemoCircleSummary {
       payoutEligible: payout['eligible'] as bool,
       recipientLabel: payout['recipientLabel'] as String?,
       explanation: json['explanation'] as String,
-      nextAction: json['nextAction'] as String,
+        nextAction: json['nextAction'] is String
+          ? json['nextAction'] as String
+          : 'No next action is available from the current summary.',
     );
   }
 }

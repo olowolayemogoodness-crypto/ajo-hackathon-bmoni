@@ -11,16 +11,17 @@ import '../../../core/widgets/section_card.dart';
 import '../../../data/repositories/circle_repository.dart';
 
 class DemoCircleScreen extends StatefulWidget {
-  const DemoCircleScreen({super.key, required this.circleId});
+  const DemoCircleScreen({super.key, required this.circleId, this.repository});
 
   final String circleId;
+  final CircleRepository? repository;
 
   @override
   State<DemoCircleScreen> createState() => _DemoCircleScreenState();
 }
 
 class _DemoCircleScreenState extends State<DemoCircleScreen> {
-  final _repository = CircleRepository.instance;
+  late final _repository = widget.repository ?? CircleRepository.instance;
   final _questionController = TextEditingController();
   DemoCircleSetup? _setup;
   DemoCircleSummary? _summary;
